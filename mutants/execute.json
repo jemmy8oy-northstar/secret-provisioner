@@ -1,0 +1,209 @@
+{
+  "command": "npm test",
+  "mutants": [
+    {
+      "id": "no-redaction-of-error-messages",
+      "file": "src/execute.js",
+      "from": "error: redactValues(error?.message ?? error, generated),",
+      "to": "error: String(error?.message ?? error),",
+      "kills": "a password in an error message is redacted before it is recorded"
+    },
+    {
+      "id": "password-never-registered-as-generated",
+      "file": "src/execute.js",
+      "from": "ctx.generated.add(password);\n      // Recorded before the call",
+      "to": "// Recorded before the call",
+      "kills": "a password in an error message is redacted before it is recorded"
+    },
+    {
+      "id": "redaction-shortest-first",
+      "file": "src/execute.js",
+      "from": "[...values].sort((a, b) => b.length - a.length)",
+      "to": "[...values].sort((a, b) => a.length - b.length)",
+      "kills": "redactValues replaces the longest value first"
+    },
+    {
+      "id": "byte-count-defaulted-instead-of-declared",
+      "file": "src/execute.js",
+      "from": "const value = generateHex(entry.bytes ?? DEFAULT_RANDOM_BYTES);",
+      "to": "const value = generateHex(DEFAULT_RANDOM_BYTES);",
+      "kills": "the byte count comes from the declaration, not from the step's prose"
+    },
+    {
+      "id": "role-and-database-confused",
+      "file": "src/execute.js",
+      "from": "const password = ctx.passwords.get(entry.role);",
+      "to": "const password = ctx.passwords.get(entry.database);",
+      "kills": "the role goes in Username and the database in Database"
+    },
+    {
+      "id": "username-taken-from-database",
+      "file": "src/execute.js",
+      "from": "      username: entry.role,",
+      "to": "      username: entry.database,",
+      "kills": "the role goes in Username and the database in Database"
+    },
+    {
+      "id": "failure-does-not-stop-the-run",
+      "file": "src/execute.js",
+      "from": "    if (failed !== null) {\n      skipped.push(describe(step));\n      continue;\n    }",
+      "to": "    if (false) {\n      skipped.push(describe(step));\n      continue;\n    }",
+      "kills": "the first failure stops the run, and the rest is reported as not attempted"
+    },
+    {
+      "id": "connection-string-separator",
+      "file": "src/execute.js",
+      "from": "join(';');",
+      "to": "join('&');",
+      "kills": "the connection string is Npgsql keyword syntax"
+    },
+    {
+      "id": "unsafe-characters-allowed-through",
+      "file": "src/execute.js",
+      "from": "    if (UNSAFE_IN_CONNECTION_STRING.test(value)) {",
+      "to": "    if (false) {",
+      "kills": "the connection string refuses a component it would have to quote"
+    },
+    {
+      "id": "missing-component-not-refused",
+      "file": "src/execute.js",
+      "from": "    if (typeof value !== 'string' || value === '') {",
+      "to": "    if (false) {",
+      "kills": "the connection string refuses a missing component rather than writing \"undefined\""
+    },
+    {
+      "id": "type-disagreement-tolerated",
+      "file": "src/execute.js",
+      "from": "  if (entry.type !== type) {",
+      "to": "  if (false) {",
+      "kills": "refuses a plan whose type disagrees with the declaration"
+    },
+    {
+      "id": "undeclared-key-invented",
+      "file": "src/execute.js",
+      "from": "  const entry = index.get(at);",
+      "to": "  const entry = index.get(at) ?? { type };",
+      "kills": "refuses a plan that writes a key no declaration claims"
+    },
+    {
+      "id": "missing-password-not-refused",
+      "file": "src/execute.js",
+      "from": "    if (password === undefined) {",
+      "to": "    if (false) {",
+      "kills": "refuses to write a connection string for a role this run did not create"
+    },
+    {
+      "id": "unknown-step-kind-silently-succeeds",
+      "file": "src/execute.js",
+      "from": "      throw new Error(`no executor branch for step kind ${JSON.stringify(step.kind)}",
+      "to": "      return; throw new Error(`no executor branch for step kind ${JSON.stringify(step.kind)}",
+      "kills": "refuses a step kind it does not know"
+    },
+    {
+      "id": "external-value-generated-anyway",
+      "file": "src/execute.js",
+      "from": "  throw new Error(`refusing to execute: ${step.namespace}/${step.secretName}#${key} is type",
+      "to": "  return generateHex(DEFAULT_RANDOM_BYTES); throw new Error(`refusing to execute: ${step.namespace}/${step.secretName}#${key} is type",
+      "kills": "refuses to generate an external value even if a plan asks for one"
+    },
+    {
+      "id": "host-guessed-instead-of-required",
+      "file": "src/execute.js",
+      "from": "  if (typeof host !== 'string' || host === '') {",
+      "to": "  if (false) {",
+      "kills": "refuses to run without a Postgres host rather than guessing one"
+    },
+    {
+      "id": "report-carries-the-key-entries-not-the-names",
+      "file": "src/execute.js",
+      "from": "keys: (step.keys ?? []).map((k) => k.key) };",
+      "to": "keys: (step.keys ?? []) };",
+      "kills": "a create-secret step reports key NAMES"
+    },
+    {
+      "id": "patch-aimed-at-the-wrong-secret",
+      "file": "src/execute.js",
+      "from": "        name: step.secretName,\n        key: step.key,",
+      "to": "        name: step.key,\n        key: step.key,",
+      "kills": "a partial estate patches one key and never rewrites the Secret"
+    },
+    {
+      "id": "type-not-propagated-into-materialise",
+      "file": "src/execute.js",
+      "from": "for (const k of step.keys ?? []) data[k.key] = materialise(step, k.key, k.type, ctx);",
+      "to": "for (const k of step.keys ?? []) data[k.key] = materialise(step, k.key, 'random', ctx);",
+      "kills": "the password put in the connection string is the one the role was created with"
+    },
+    {
+      "id": "blocked-entries-dropped-from-the-report",
+      "file": "src/execute.js",
+      "from": "    blocked: plan.blocked ?? [],",
+      "to": "    blocked: [],",
+      "kills": "the planner's refusals are carried through verbatim"
+    },
+    {
+      "id": "generateHex-accepts-zero-bytes",
+      "file": "src/execute.js",
+      "from": "  if (!Number.isInteger(bytes) || bytes < 1) {",
+      "to": "  if (false) {",
+      "kills": "generateHex refuses a byte count that is not a positive integer"
+    },
+    {
+      "id": "port-validated-after-coercion",
+      "file": "src/execute.js",
+      "from": "  if (!Number.isInteger(port) || port < 1 || port > 65535) {\n    throw new TypeError(`connection string: Port",
+      "to": "  if (false) {\n    throw new TypeError(`connection string: Port",
+      "kills": "the port is validated before it is coerced, not after"
+    },
+    {
+      "id": "execute-accepts-a-NaN-port",
+      "file": "src/execute.js",
+      "from": "  if (!Number.isInteger(port) || port < 1 || port > 65535) {\n    throw new TypeError(`config.postgres.port",
+      "to": "  if (false) {\n    throw new TypeError(`config.postgres.port",
+      "kills": "execute refuses a NaN port rather than creating roles and then writing Port=NaN"
+    },
+    {
+      "id": "noop-dropped-from-the-report",
+      "file": "src/execute.js",
+      "from": "    noop: plan.noop ?? [],",
+      "to": "    noop: [],",
+      "kills": "noop is carried through too"
+    },
+    {
+      "id": "noop-missing-from-the-summary",
+      "file": "src/execute.js",
+      "from": "      noop: (plan.noop ?? []).length,",
+      "to": "      noop: 0,",
+      "kills": "noop is carried through too"
+    },
+    {
+      "id": "duplicate-create-role-allowed",
+      "file": "src/execute.js",
+      "from": "      if (ctx.passwords.has(step.role)) {",
+      "to": "      if (false) {",
+      "kills": "refuses a plan that creates the same role twice"
+    },
+    {
+      "id": "shape-redaction-removed",
+      "file": "src/execute.js",
+      "from": "  return out.replace(SECRET_SHAPED, '<redacted>');",
+      "to": "  return out;",
+      "kills": "redactValues also catches a value the driver truncated"
+    },
+    {
+      "id": "shape-redaction-too-broad",
+      "file": "src/execute.js",
+      "from": "const SECRET_SHAPED = /[0-9a-f]{32,}/g;",
+      "to": "const SECRET_SHAPED = /[0-9a-f]{4,}/g;",
+      "kills": "redactValues leaves ordinary prose alone"
+    },
+    {
+      "id": "assertNoGeneratedValues-never-throws",
+      "file": "src/execute.js",
+      "from": "    if (value.length > 0 && serialised.includes(value)) {",
+      "to": "    if (false) {",
+      "kills": "assertNoGeneratedValues throws on a report that leaks — called directly"
+    }
+  ],
+  "note": "Run from this repo root with: node ../../brain/tools/mutate-spec.js mutants/execute.json --keep-going  (cwd defaults to where you run it). Each mutant names, in `kills`, the test that must go red. A mutant whose anchor no longer matches is reported NOT-APPLIED and counts against the score — it is not a kill."
+}

@@ -115,6 +115,23 @@ npm test
 ⚠️ Not `node --test src/` — naming a directory makes Node resolve it as a module
 and fail with `MODULE_NOT_FOUND`, which looks exactly like a broken suite.
 
+### Does the suite notice when the code is wrong?
+
+A green suite proves the command ran. `mutants/execute.json` is the list of
+specific ways this module could be broken — *confuse the role with the
+database*, *read the byte count from the step's prose*, *validate the port after
+coercing it* — each naming the test that must go red. Run it:
+
+```sh
+node ../claude-code-bot/tools/mutate-spec.js mutants/execute.json --keep-going
+```
+
+It is committed rather than kept in a scratch directory because **"29/29 killed"
+is a claim, and a claim needs somewhere to be re-run from.** A mutant whose
+anchor no longer matches after a refactor is reported `NOT-APPLIED` and counts
+*against* the score — otherwise a rotted mutant and a killed one produce the same
+clean line.
+
 ## Branches
 
 `main` is the released state; work happens on `dev` via pull requests.

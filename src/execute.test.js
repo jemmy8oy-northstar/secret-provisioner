@@ -91,6 +91,30 @@ test('the connection string refuses a missing component rather than writing "und
   assert.throws(() => npgsqlConnectionString({ host: 'p', port: 5432, database: 'a', username: 'b' }), /Password is required/);
 });
 
+test('the port is validated before it is coerced, not after', () => {
+  // The check `typeof value !== 'string'` runs over a parts object in which
+  // Port has ALREADY been through String(). Put the coercion first and that one
+  // field's validation is dead: Port=NaN and Port=[object Object] both compose
+  // cleanly. NaN is the realistic one — Number(process.env.PG_PORT) on an unset
+  // variable is NaN, not undefined, so a `?? DEFAULT` upstream does not catch
+  // it, and create-only means the resulting Secret can never be rewritten.
+  const base = { host: 'pg', database: 'app', username: 'app', password: 'abc123' };
+  for (const bad of [NaN, undefined, null, '5432', 5432.5, 0, -1, 65536, {}, []]) {
+    assert.throws(() => npgsqlConnectionString({ ...base, port: bad }), /Port must be an integer/, `port ${String(bad)} should have been refused`);
+  }
+  assert.match(npgsqlConnectionString({ ...base, port: 5432 }), /;Port=5432;/);
+});
+
+test('execute refuses a NaN port rather than creating roles and then writing Port=NaN', async () => {
+  const { effects, calls } = recorder();
+  await assert.rejects(
+    () => execute(emptyEstate(), declarations(), effects, { postgres: { host: 'pg', port: Number('') } }),
+    /config\.postgres\.port must be an integer/,
+  );
+  // Before anything was created, not after.
+  assert.equal(calls.createRole.length, 0);
+});
+
 test('a hex password never needs quoting — which is why values are hex and not base64', () => {
   // The encoding is a correctness decision: base64 emits `+`, `/` and `=`, and
   // `=` inside a keyword-value string is where the string stops meaning what it
@@ -191,6 +215,14 @@ test('no generated value reaches the report, in any shape', async () => {
   assert.equal(values.length, 6, 'the run must actually have generated something');
   for (const value of values) assert.ok(!serialised.includes(value), 'a generated value is in the report');
 
+  // Every one of those six is REGISTERED, not merely absent. The distinction
+  // matters because `redactValues` has a shape pass that would scrub a hex
+  // password out of an error message whether or not we tracked it — so absence
+  // from the report is no longer evidence that `assertNoGeneratedValues` is
+  // actually covering it. This count is what makes the registration observable;
+  // without it, dropping a `generated.add` is invisible.
+  assert.equal(report.summary.generated, 6, 'a generated value was not registered, so the final assertion does not cover it');
+
   // …and the report did carry the identities, so the assertion above is not
   // passing by emptiness.
   assert.match(serialised, /around-the-world-secrets/);
@@ -266,6 +298,28 @@ test('redactValues replaces the longest value first', () => {
   assert.equal(redactValues('x abcdef y abcd z', values), 'x <redacted> y <redacted> z');
 });
 
+test('redactValues also catches a value the driver truncated', () => {
+  // Exact matching has one blind spot and it is the realistic one: a message
+  // that quotes only part of a value no longer equals anything we hold, so it
+  // sails through pass 1 while still carrying most of the entropy. The shape
+  // pass exists for that. The schema's floor is 16 bytes (oke-fleet's
+  // MIN_RANDOM_BYTES), so 32 hex characters is the shortest thing we can make.
+  const full = generateHex(32);
+  const truncated = full.slice(0, 48);
+  const out = redactValues(`pq: error near "${truncated}…"`, new Set([full]));
+
+  assert.ok(!out.includes(truncated), 'a truncated value survived redaction');
+  assert.match(out, /<redacted>/);
+  assert.match(out, /pq: error near/, 'the diagnostic survives');
+});
+
+test('redactValues leaves ordinary prose alone', () => {
+  // The shape pass must not eat the diagnostic it is protecting. Namespaces,
+  // key names and Postgres identifiers are not 32-character hex runs.
+  const text = 'pq: role "aroundtheworld" already exists — balenthiran/around-the-world-secrets#Jwt__Secret deadbeef';
+  assert.equal(redactValues(text, new Set()), text);
+});
+
 test('assertNoGeneratedValues throws on a report that leaks — called directly', () => {
   // Unreachable through execute() by construction, and a guard no test can
   // execute is indistinguishable from one that does not work.
@@ -316,6 +370,19 @@ test('refuses to write a connection string for a role this run did not create', 
   assert.match(report.failed.error, /does not create role aroundtheworld in the same run/);
 });
 
+test('refuses a plan that creates the same role twice', async () => {
+  // Left alone, the second password overwrites the first in the map while the
+  // FIRST is the one the server was given — so the connection string would be
+  // composed from a password that was never set, in a Secret create-only can
+  // never rewrite.
+  const plan = emptyEstate();
+  plan.steps = [plan.steps[0], { ...plan.steps[0] }, ...plan.steps.slice(1)];
+  const { effects } = recorder();
+  const report = await execute(plan, declarations(), effects, config);
+
+  assert.match(report.failed.error, /creates role aroundtheworld twice/);
+});
+
 test('refuses a step kind it does not know', async () => {
   // The planner and this executor live in different repositories. A fifth kind
   // added there must stop the run, not fall through it as a silent success.
@@ -354,6 +421,22 @@ test('the planner\'s refusals are carried through verbatim, and do not stop anyt
   assert.equal(report.summary.done, 6);
 });
 
+test('noop is carried through too — a settled estate is mostly noop', async () => {
+  // `noop` and `unmanaged` are the same kind of thing: an existing key nothing
+  // touched. Carrying one and dropping the other makes a run that correctly did
+  // nothing look like a run that saw nothing — and on a provisioned estate that
+  // is nearly every run.
+  const plan = partialEstate();
+  assert.equal(plan.noop.length, 5, 'the fixture must carry noop entries for this to mean anything');
+
+  const { effects } = recorder();
+  const report = await execute(plan, declarations(), effects, config);
+
+  assert.deepEqual(report.noop, plan.noop);
+  assert.equal(report.summary.noop, 5);
+  assert.equal(report.summary.unmanaged, 1);
+});
+
 test('indexDeclarations keys on exactly the identity a plan step carries', () => {
   const index = indexDeclarations(declarations());
   assert.equal(index.get('balenthiran/around-the-world-secrets#Admin__Key').bytes, 16);
@@ -365,5 +448,5 @@ test('indexDeclarations keys on exactly the identity a plan step carries', () =>
 test('an empty plan is a clean run, not an error', async () => {
   const { effects } = recorder();
   const report = await execute({ steps: [] }, declarations(), effects, config);
-  assert.deepEqual(report.summary, { done: 0, failed: 0, skipped: 0, generated: 0, blocked: 0, unknown: 0, drift: 0, unmanaged: 0 });
+  assert.deepEqual(report.summary, { done: 0, failed: 0, skipped: 0, generated: 0, blocked: 0, unknown: 0, drift: 0, unmanaged: 0, noop: 0 });
 });

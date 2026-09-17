@@ -88,6 +88,17 @@ export function generateHex(bytes) {
  * start, with a value nobody is allowed to read in order to find out why.
  */
 export function npgsqlConnectionString({ host, port, database, username, password }) {
+  // Checked BEFORE the coercion below, and this ordering is the whole of it: a
+  // `String(port)` applied first makes the `typeof value !== 'string'` loop dead
+  // for this one field, so `Port=NaN` and `Port=[object Object]` both compose
+  // cleanly and get written into a Secret that create-only can never rewrite.
+  // `NaN` is the realistic one — `Number(process.env.PG_PORT)` on an unset
+  // variable is `NaN`, not `undefined`, so a `?? DEFAULT` upstream does not
+  // catch it.
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new TypeError(`connection string: Port must be an integer from 1 to 65535, got ${JSON.stringify(port)}`);
+  }
+
   const parts = { Host: host, Port: String(port), Database: database, Username: username, Password: password };
   for (const [keyword, value] of Object.entries(parts)) {
     if (typeof value !== 'string' || value === '') {
@@ -137,13 +148,29 @@ function entryFor(index, step, key, type) {
   return entry;
 }
 
+// Every value this module generates is hex, and the shortest one the schema
+// permits is 16 bytes — 32 hex characters (oke-fleet:scripts/validate-secrets.mjs
+// sets MIN_RANDOM_BYTES = 16). Nothing else that legitimately appears in an
+// error message is a 32-character run of hex. So this catches what exact
+// matching cannot: a value a driver TRUNCATED before putting it in a message,
+// which is no longer equal to anything in `generated` and would sail through.
+const SECRET_SHAPED = /[0-9a-f]{32,}/g;
+
 /**
  * Replace every generated value in a string with a marker.
  *
  * Applied to error messages, because a Postgres driver error can quote the
- * failing statement and that statement contains a password. Longest first, so a
- * value that contains another is not partially replaced into something that no
- * longer matches.
+ * failing statement and that statement contains a password.
+ *
+ * Two passes, and the second is not redundant:
+ *   1. exact, longest first — so a value that contains another is not partially
+ *      replaced into something that no longer matches;
+ *   2. shape — anything hex and long enough to be one of ours, whether or not
+ *      it still equals a value we hold. A message that was truncated, or that
+ *      quotes a value this run did not generate, is redacted too.
+ * Pass 2 alone would be a heuristic; pass 1 alone has a blind spot. Together the
+ * blind spot is a value shorter than 32 hex characters, which this module cannot
+ * produce.
  */
 export function redactValues(text, values) {
   let out = String(text);
@@ -151,7 +178,7 @@ export function redactValues(text, values) {
     if (value.length === 0) continue;
     out = out.split(value).join('<redacted>');
   }
-  return out;
+  return out.replace(SECRET_SHAPED, '<redacted>');
 }
 
 /**
@@ -163,6 +190,18 @@ export function redactValues(text, values) {
  * indistinguishable from one that does not work. It walks the serialised report
  * rather than known fields, so a field added later by someone who has not read
  * this comment is covered too.
+ *
+ * ⚠️ ITS SCOPE IS THIS RUN'S OWN RANDOMNESS, AND ONLY THAT. `blocked`,
+ * `unknown`, `drift`, `unmanaged`, `noop` and every `detail` string are the
+ * planner's prose, carried through verbatim from another repository, and this
+ * function has no way to recognise a secret embedded in them. That is safe
+ * today for a reason worth stating rather than assuming: the planner is pure
+ * over declarations and an observation, the observation is built by
+ * `observe.js`, which drops every value at the earliest point, and the planner
+ * writes `<generated>` where a password would go. `redactValues`'s shape pass
+ * is the only thing that would catch a regression there, and it only runs on
+ * error messages. If the planner ever gains a source of real values, this is
+ * the comment that was wrong.
  */
 export function assertNoGeneratedValues(report, values) {
   const serialised = JSON.stringify(report);
@@ -206,7 +245,14 @@ export async function execute(plan, declarations, effects, config) {
     // wrong value can never be corrected in place.
     throw new TypeError('config.postgres.host is required — refusing to guess the Postgres host into a connection string that can never be rewritten');
   }
+  // `??` only defaults null and undefined, so a port that arrived as `NaN` from
+  // `Number(process.env.PG_PORT)` passes straight through it. Refused here as
+  // well as in the composer, so the run stops before anything is created rather
+  // than after the roles exist.
   const port = config.postgres.port ?? DEFAULT_POSTGRES_PORT;
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new TypeError(`config.postgres.port must be an integer from 1 to 65535, got ${JSON.stringify(config.postgres.port)}`);
+  }
 
   const index = indexDeclarations(declarations);
   // Run-scoped and in memory only. A password is generated when its role is
@@ -246,6 +292,12 @@ export async function execute(plan, declarations, effects, config) {
     unknown: plan.unknown ?? [],
     drift: plan.drift ?? [],
     unmanaged: plan.unmanaged ?? [],
+    // `noop` too. It and `unmanaged` are the same kind of thing — an existing
+    // key nothing touched — and carrying one but not the other was an omission,
+    // not a decision: on a settled estate `noop` is most of the plan, and a
+    // report that drops it makes a run that correctly did nothing look like a
+    // run that saw nothing.
+    noop: plan.noop ?? [],
     summary: {
       done: done.length,
       failed: failed === null ? 0 : 1,
@@ -255,6 +307,7 @@ export async function execute(plan, declarations, effects, config) {
       unknown: (plan.unknown ?? []).length,
       drift: (plan.drift ?? []).length,
       unmanaged: (plan.unmanaged ?? []).length,
+      noop: (plan.noop ?? []).length,
     },
   };
 
@@ -265,6 +318,13 @@ export async function execute(plan, declarations, effects, config) {
 async function runStep(step, ctx) {
   switch (step.kind) {
     case 'create-role': {
+      if (ctx.passwords.has(step.role)) {
+        // Two create-role steps for one role is a plan contradicting itself.
+        // Left alone, the second password overwrites the first in the map while
+        // the FIRST is the one the server was given, so the connection string
+        // would be composed from a password that was never set.
+        throw new Error(`refusing to execute: the plan creates role ${step.role} twice, and the connection string would be composed from the second password while the server holds the first`);
+      }
       const password = generateHex(DEFAULT_RANDOM_BYTES);
       ctx.generated.add(password);
       // Recorded before the call, not after: if `createRole` throws having
