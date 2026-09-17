@@ -1,0 +1,29 @@
+name: CI
+
+# Without this, `npm test` is something a human ran once, not a gate — a passing
+# test that no workflow runs proves nothing about the next pull request.
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # No `npm ci`: this repo has no dependencies and therefore no lockfile,
+      # and `npm ci` fails outright without one. Add the step in the same pull
+      # request that adds the first dependency, not before.
+      - name: Test
+        run: npm test
