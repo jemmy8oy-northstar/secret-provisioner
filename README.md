@@ -60,8 +60,36 @@ getting away with it.
   package.
 - ✅ **The observer** (`src/observe.js`) — turns Kubernetes and Postgres
   responses into that observation. Pure; the clients live at the edge.
-- ⬜ The Kubernetes and Postgres clients, the executor, the HTTP surface.
+- ✅ **The executor** (`src/execute.js`) — runs the plan's steps in order through
+  an injected `effects` object, generates the values, and returns a report that
+  provably contains none of them. The clients live at the edge here too, which
+  is what lets every guarantee below be a test rather than an audit of a live
+  cluster.
+- ⬜ The Kubernetes and Postgres clients, and the HTTP surface.
 - ⬜ `Dockerfile`, chart, build workflow.
+
+### What the executor guarantees, and how
+
+| guarantee | how it is held |
+| --- | --- |
+| No generated value is ever reported | every error message is redacted first (Postgres quotes the failing `CREATE ROLE … PASSWORD` back at you); `assertNoGeneratedValues` then walks the finished report and throws |
+| An existing Secret is patched one key at a time | the planner emits `patch-secret-key`, and the executor never assembles a whole-Secret write for an existing target |
+| Nothing is overwritten, even under a race | `createSecret` must be a **create** (409 if it exists) and `createRole` a plain `CREATE ROLE` (42710). The plan was made against an observation taken moments earlier, so a check here would be a race; letting the server refuse is not |
+| A connection string names the right role | `role` and `database` come from the declaration, joined to the step by identity — and a mismatch of type between the two stops the run |
+| The first failure stops the run | a failed step means the cluster is not what the plan assumed, and every later step was chosen on that assumption. Re-running is free: `/reconcile` is on demand, with a human watching |
+
+⚠️ **Values are hex, not base64, and that is a correctness decision.** Npgsql's
+connection string is `keyword=value;…`, so a value containing `=`, `;`, `'` or
+`"` has to be quoted. Hex is `[0-9a-f]` and never can. base64 emits `+`, `/` and
+`=`. The composer refuses any component it would have to quote rather than
+attempting to escape it.
+
+⚠️ **`DATABASE_URL` is a key NAME, not a format.** `balenthiran.co.uk`'s chart
+binds that key to the env var `ConnectionStrings__DefaultConnection`, and both
+apps use `Npgsql.EntityFrameworkCore.PostgreSQL` — so it holds an Npgsql
+keyword-value string, not a `postgres://` URL. Writing a URL there because of
+what the key is called gives you a Secret that looks entirely reasonable and an
+app that will not start, with a value nobody is allowed to read to find out why.
 
 ### The one property the observer exists to hold
 
@@ -86,6 +114,23 @@ npm test
 
 ⚠️ Not `node --test src/` — naming a directory makes Node resolve it as a module
 and fail with `MODULE_NOT_FOUND`, which looks exactly like a broken suite.
+
+### Does the suite notice when the code is wrong?
+
+A green suite proves the command ran. `mutants/execute.json` is the list of
+specific ways this module could be broken — *confuse the role with the
+database*, *read the byte count from the step's prose*, *validate the port after
+coercing it* — each naming the test that must go red. Run it:
+
+```sh
+node ../claude-code-bot/tools/mutate-spec.js mutants/execute.json --keep-going
+```
+
+It is committed rather than kept in a scratch directory because **"29/29 killed"
+is a claim, and a claim needs somewhere to be re-run from.** A mutant whose
+anchor no longer matches after a refactor is reported `NOT-APPLIED` and counts
+*against* the score — otherwise a rotted mutant and a killed one produce the same
+clean line.
 
 ## Branches
 
