@@ -1,0 +1,11 @@
+{
+  "name": "secret-provisioner",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Creates the Kubernetes Secrets and Postgres databases that oke-fleet declares",
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "UNLICENSED"
+}
