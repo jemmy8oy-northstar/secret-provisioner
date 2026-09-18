@@ -1,0 +1,125 @@
+{
+  "cwd": "/data/repos/secret-provisioner",
+  "command": "npm test",
+  "mutants": [
+    {
+      "id": "head-is-resolved",
+      "file": "src/declarations.js",
+      "from": "  if (branch === 'HEAD') {",
+      "to": "  if (false) {",
+      "kills": "HEAD resolves to the default branch — main, the one Argo releases from — so provisioning stops being a precondition of release and nothing looks wrong until an app starts without its Secret"
+    },
+    {
+      "id": "empty-branch-defaults",
+      "file": "src/declarations.js",
+      "from": "  if (typeof branch !== 'string' || branch === '') {",
+      "to": "  if (typeof branch !== 'string') {",
+      "kills": "an empty branch name passes and is concatenated into the API URL, so a missing config reads as a request GitHub answers for some other ref"
+    },
+    {
+      "id": "listing-not-an-array-is-empty",
+      "file": "src/declarations.js",
+      "from": "  if (!Array.isArray(listing)) {",
+      "to": "  if (false) {",
+      "kills": "`{\"message\":\"Not Found\"}` — valid JSON, and what the contents API answers for a missing path — becomes zero declarations instead of a failed read"
+    },
+    {
+      "id": "zero-declarations-succeeds",
+      "file": "src/declarations.js",
+      "from": "  if (blobs.length === 0) {",
+      "to": "  if (false) {",
+      "kills": "a wrong ref, a moved directory and a genuinely empty secrets/ all produce one identical clean reconcile that provisioned nothing"
+    },
+    {
+      "id": "url-not-pinned-to-the-commit",
+      "file": "src/declarations.js",
+      "from": "    if (!blob.url.includes(sha)) {",
+      "to": "    if (false) {",
+      "kills": "the listing and the files may then come from different commits, assembling a set of declarations that never existed as a commit — and every file still parses"
+    },
+    {
+      "id": "readme-excluded-by-name",
+      "file": "src/declarations.js",
+      "from": "entry.name.endsWith(DECLARATION_EXT)",
+      "to": "entry.name !== 'README.md'",
+      "kills": "excluding the one filename that exists today passes until the first NOTES.md or CODEOWNERS appears beside the declarations"
+    },
+    {
+      "id": "a-non-file-json-entry-is-skipped",
+      "file": "src/declarations.js",
+      "from": "    if (entry.type !== 'file') {",
+      "to": "    if (false) {",
+      "kills": "a symlinked declaration — which oke-fleet's readFileSync follows and its CI therefore validated — is fetched as if it were a file, so the two sides of the seam disagree about what is declared"
+    },
+    {
+      "id": "a-non-file-json-entry-is-dropped",
+      "file": "src/declarations.js",
+      "from": "  const named = listing.filter((entry) => typeof entry?.name === 'string' && entry.name.endsWith(DECLARATION_EXT));",
+      "to": "  const named = listing.filter((entry) => entry?.type === 'file' && typeof entry?.name === 'string' && entry.name.endsWith(DECLARATION_EXT));",
+      "kills": "the tempting version: filter the odd entry out instead of refusing it, and the provisioner silently provisions fewer apps than oke-fleet believes are declared"
+    },
+    {
+      "id": "order-is-githubs",
+      "file": "src/declarations.js",
+      "from": "    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));",
+      "to": "    ;",
+      "kills": "the declarations stop arriving in the validator's order, so the two sides of the seam disagree about which file is which"
+    },
+    {
+      "id": "an-array-is-a-declaration",
+      "file": "src/declarations.js",
+      "from": "  if (value === null || typeof value !== 'object' || Array.isArray(value)) bad('a declaration must be a JSON object');",
+      "to": "  if (typeof value !== 'object') bad('a declaration must be a JSON object');",
+      "kills": "`null` and a top-level array both pass the shape check and fail later, half way through a create-only run"
+    },
+    {
+      "id": "empty-keys-accepted",
+      "file": "src/declarations.js",
+      "from": "  if (!Array.isArray(value.keys) || value.keys.length === 0) bad('keys must be a non-empty array');",
+      "to": "  if (!Array.isArray(value.keys)) bad('keys must be a non-empty array');",
+      "kills": "an app declaring no keys reports as successfully provisioned while nothing was ever created for it"
+    },
+    {
+      "id": "the-file-is-not-named",
+      "file": "src/declarations.js",
+      "from": "  const bad = (why) => { throw new Error(`${name}: ${why}`); };",
+      "to": "  const bad = (why) => { throw new Error(why); };",
+      "kills": "the message is all anyone gets, and without the filename it is a hunt through the repo for which of three declarations it meant"
+    },
+    {
+      "id": "a-bad-status-is-ignored",
+      "file": "src/declarations.js",
+      "from": "  if (!response.ok) {",
+      "to": "  if (false) {",
+      "kills": "a 403, 404 or 500 body is parsed as if it were content, so a rate-limited reconcile fails somewhere unrelated three calls later"
+    },
+    {
+      "id": "quota-left-out-of-the-message",
+      "file": "src/declarations.js",
+      "from": "    throw new Error(`GET ${url} answered ${response.status}${quota}`);",
+      "to": "    throw new Error(`GET ${url} answered ${response.status}`);",
+      "kills": "a 403 that fixes itself within the hour and a 403 that never will become the same message"
+    },
+    {
+      "id": "sha-is-not-checked",
+      "file": "src/declarations.js",
+      "from": "  if (!/^[0-9a-f]{40}$/.test(sha)) {",
+      "to": "  if (false) {",
+      "kills": "an HTML error page or an empty body counts as a resolved branch and is concatenated into the next URL, blaming the failure on the wrong call"
+    },
+    {
+      "id": "a-partial-read-succeeds",
+      "file": "src/declarations.js",
+      "from": "  const files = await Promise.all(",
+      "to": "  const files = (await Promise.allSettled(\n    blobs.map(async (blob) => ({ name: blob.path, body: await getText(fetchImpl, blob.url, 'text/plain') })),\n  )).filter((r) => r.status === 'fulfilled').map((r) => r.value); await Promise.all(",
+      "kills": "the exact natural-looking alternative this module exists to refuse — one unreachable file leaves an app unprovisioned inside a reconcile that reports success"
+    },
+    {
+      "id": "the-branch-is-read-not-the-commit",
+      "file": "src/declarations.js",
+      "from": "`${api}/contents/${dir}?ref=${sha}`",
+      "to": "`${api}/contents/${dir}?ref=${branch}`",
+      "kills": "the listing comes from the branch rather than the resolved commit, so a push landing mid-read is invisible and the pin check has nothing to catch"
+    }
+  ]
+}
