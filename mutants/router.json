@@ -1,0 +1,97 @@
+{
+  "cwd": "/data/repos/secret-provisioner",
+  "command": "npm test",
+  "mutants": [
+    {
+      "id": "get-reconcile-runs-it",
+      "file": "src/router.js",
+      "from": "  { method: 'POST', path: '/reconcile', handler: 'reconcile', exclusive: true, rejectsBody: true },",
+      "to": "  { method: 'POST', path: '/reconcile', handler: 'reconcile', exclusive: true, rejectsBody: true },\n  { method: 'GET', path: '/reconcile', handler: 'reconcile', exclusive: true, rejectsBody: true },",
+      "kills": "a GET provisions the estate, so a link, a crawler, a browser prefetch or an uptime probe can trigger a write"
+    },
+    {
+      "id": "wrong-method-is-a-404",
+      "file": "src/router.js",
+      "from": "    if (allowed.length > 0) {",
+      "to": "    if (false) {",
+      "kills": "GET /reconcile and a typo produce the same answer, so nobody ever learns that something tried to provision over a link"
+    },
+    {
+      "id": "body-is-allowed",
+      "file": "src/router.js",
+      "from": "  if (route.rejectsBody && carriesBody(request.headers)) {",
+      "to": "  if (false) {",
+      "kills": "the endpoint accepts a payload, so reachability becomes the only control on an unauthenticated write — the README's 'takes no body' goes back to being a description of intent"
+    },
+    {
+      "id": "chunked-body-slips-through",
+      "file": "src/router.js",
+      "from": "  return String(headers?.['transfer-encoding'] ?? '').toLowerCase().includes('chunked');",
+      "to": "  return false;",
+      "kills": "a chunked request carries no content-length, and that is the shape a cross-origin text/plain POST can take — the one body that most needs refusing is the one that gets through"
+    },
+    {
+      "id": "empty-body-is-a-body",
+      "file": "src/router.js",
+      "from": "  if (Number.isFinite(length) && length > 0) return true;",
+      "to": "  if (headers?.['content-length'] !== undefined) return true;",
+      "kills": "`curl -X POST` sends content-length: 0, so the endpoint is unusable by the one command anyone would reach for"
+    },
+    {
+      "id": "no-single-flight",
+      "file": "src/router.js",
+      "from": "    if (state.inFlight[route.handler]) {",
+      "to": "    if (false) {",
+      "kills": "two reconciles race to create the same objects and the loser's report fills with 409s and 42710s that read like a broken cluster"
+    },
+    {
+      "id": "the-lock-leaks-on-failure",
+      "file": "src/router.js",
+      "from": "    if (route.exclusive) state.inFlight[route.handler] = false;",
+      "to": "    if (false) state.inFlight[route.handler] = false;",
+      "kills": "one failed reconcile locks the endpoint until the pod restarts"
+    },
+    {
+      "id": "state-is-per-request",
+      "file": "src/router.js",
+      "from": "  const state = { inFlight: { reconcile: false } };\n\n  return async (req, res) => {",
+      "to": "  return async (req, res) => {\n    const state = { inFlight: { reconcile: false } };",
+      "kills": "the exclusivity guard becomes inert — it exists, passes its own unit test, and is never once true across two real requests"
+    },
+    {
+      "id": "the-error-message-is-echoed",
+      "file": "src/router.js",
+      "from": "return { ...reply(500, { error: `${route.method} ${route.path} failed`, detail: 'see the pod log' }), thrown: error };",
+      "to": "return { ...reply(500, { error: `${route.method} ${route.path} failed`, detail: String(error?.message) }), thrown: error };",
+      "kills": "a Postgres error quotes the failing statement back at you, and that statement contains a password — over HTTP, to an unauthenticated caller"
+    },
+    {
+      "id": "the-error-is-swallowed",
+      "file": "src/router.js",
+      "from": "}), thrown: error };",
+      "to": "}) };",
+      "kills": "refusing to echo an error turns into losing it — the failure reaches neither the response nor the log"
+    },
+    {
+      "id": "prefix-matching",
+      "file": "src/router.js",
+      "from": "  const onPath = ROUTES.filter((r) => r.path === path);",
+      "to": "  const onPath = ROUTES.filter((r) => path.startsWith(r.path));",
+      "kills": "/reconcile/ and /reconcileX reach the write endpoint, so one write has several spellings and only one of them is the one anyone audits"
+    },
+    {
+      "id": "the-query-string-reaches-the-handler",
+      "file": "src/router.js",
+      "from": "  const path = String(url ?? '').split('#')[0].split('?')[0];",
+      "to": "  const path = String(url ?? '');",
+      "kills": "/plan?x=1 stops matching at all, which is the visible half; the invisible half is that a route specified as taking no arguments would have a channel for one"
+    },
+    {
+      "id": "the-405-recomputes-the-path",
+      "file": "src/router.js",
+      "from": "  const { route, allowed } = match(request.method, request.url);",
+      "to": "  const { route } = match(request.method, request.url); const allowed = ROUTES.filter((r) => r.path === String(request.url)).map((r) => r.method);",
+      "kills": "the 405 branch derives the path a second way and disagrees with the match that produced it, so a real route with a query string answers 404 instead of 405"
+    }
+  ]
+}
