@@ -1,0 +1,139 @@
+{
+  "cwd": "/data/repos/secret-provisioner",
+  "command": "npm test",
+  "mutants": [
+    {
+      "id": "failed-namespace-becomes-empty",
+      "file": "src/kube.js",
+      "from": "        results.push({ namespace, error });",
+      "to": "        results.push({ namespace, listing: { items: [] } });",
+      "kills": "a transient 503 becomes 'this namespace holds no Secrets', so the planner plans a create for a Secret that already exists — the exact failure observe.js and the planner's refusal were both built around"
+    },
+    {
+      "id": "failed-namespace-is-dropped",
+      "file": "src/kube.js",
+      "from": "      } catch (error) {\n        results.push({ namespace, error });",
+      "to": "      } catch (error) {\n        void error;",
+      "kills": "nothing destructive follows — the namespace still stays out of `namespaces` — but observation().failures is empty, so a run reports a list of undecidable keys and no reason for any of them"
+    },
+    {
+      "id": "one-failure-stops-the-rest",
+      "file": "src/kube.js",
+      "from": "      try {\n        results.push({ namespace, listing: await listSecrets(namespace) });",
+      "to": "      if (results.some((r) => r.error)) break;\n      try {\n        results.push({ namespace, listing: await listSecrets(namespace) });",
+      "kills": "one forbidden namespace truncates the observation, and every namespace after it is silently absent rather than reported as unreadable"
+    },
+    {
+      "id": "create-becomes-a-replace",
+      "file": "src/kube.js",
+      "from": "      method: 'POST',\n      path: `/api/v1/namespaces/${encodeURIComponent(namespace)}/secrets`,",
+      "to": "      method: 'PUT',\n      path: `/api/v1/namespaces/${encodeURIComponent(namespace)}/secrets/${encodeURIComponent(name)}`,",
+      "kills": "the write is an unconditional replace: every key not in `data` is discarded, and the 409 that IS the create-only guarantee is never returned"
+    },
+    {
+      "id": "data-instead-of-stringData",
+      "file": "src/kube.js",
+      "from": "        stringData: data,",
+      "to": "        data,",
+      "kills": "plaintext values are sent in the field the API expects base64 in, so every value in the Secret decodes to garbage — and the app fails to start holding a value nobody is allowed to read"
+    },
+    {
+      "id": "patch-is-unconditional",
+      "file": "src/kube.js",
+      "from": "      body: { metadata: { resourceVersion }, stringData: { [key]: value } },",
+      "to": "      body: { stringData: { [key]: value } },",
+      "kills": "the absence check above becomes a plain check-then-act race — a key written between the read and the patch is overwritten, which is the one thing create-only forbids"
+    },
+    {
+      "id": "the-patch-resends-every-value",
+      "file": "src/kube.js",
+      "from": "      body: { metadata: { resourceVersion }, stringData: { [key]: value } },",
+      "to": "      body: { metadata: { resourceVersion }, data: secret.data, stringData: { [key]: value } },",
+      "kills": "every other key's value is read out of the response and sent back over the wire, so values this module has no business holding pass through it on every patch"
+    },
+    {
+      "id": "existing-key-is-overwritten",
+      "file": "src/kube.js",
+      "from": "    if (keysOf(secret).includes(key)) {",
+      "to": "    if (false) {",
+      "kills": "the provisioner overwrites a value it did not create — the guarantee the whole repo is named after"
+    },
+    {
+      "id": "a-missing-resource-version-is-tolerated",
+      "file": "src/kube.js",
+      "from": "    if (typeof resourceVersion !== 'string' || resourceVersion === '') {",
+      "to": "    if (false) {",
+      "kills": "the precondition is silently dropped from the patch body, so the write stops being conditional while every other line still says it is"
+    },
+    {
+      "id": "the-refusal-quotes-the-secret",
+      "file": "src/kube.js",
+      "from": "      throw new Error(`refusing to patch ${at}: the key is already present, and this provisioner never overwrites a value it did not create`);",
+      "to": "      throw new Error(`refusing to patch ${at}: the key is already present in ${JSON.stringify(secret)}`);",
+      "kills": "a 200 response body carries every value in the Secret, and this puts it into an error message that execute.js copies into the report POST /reconcile returns"
+    },
+    {
+      "id": "the-token-is-not-redacted",
+      "file": "src/kube.js",
+      "from": "      throw new Error(redactToken(`${what}: ${error?.message ?? error}`, token));",
+      "to": "      throw new Error(`${what}: ${error?.message ?? error}`);",
+      "kills": "Node attaches request options to some socket-level errors, and the options carry the Authorization header — so a TLS failure publishes the service account token"
+    },
+    {
+      "id": "every-error-is-redacted",
+      "file": "src/kube.js",
+      "from": "  const message = status_?.message ?? String(text).slice(0, 500);",
+      "to": "  const message = '<redacted>';",
+      "kills": "the inverted control: 'redact everything' is trivially safe and makes every failure read as 'the API answered 403' with no way to find out why"
+    },
+    {
+      "id": "an-unparseable-200-is-an-empty-listing",
+      "file": "src/kube.js",
+      "from": "      throw new Error(`listing Secrets in ${namespace}: the API answered 200 with something that is not a v1.SecretList`);",
+      "to": "      return { kind: 'SecretList', items: [] };",
+      "kills": "a proxy or mesh sidecar answering 200 with HTML reads as an empty namespace — the same destructive plan as failed-namespace-becomes-empty, arriving by a route nobody would think to check"
+    },
+    {
+      "id": "the-namespace-is-concatenated",
+      "file": "src/kube.js",
+      "from": "    const { text } = await call(`listing Secrets in ${namespace}`, {\n      method: 'GET',\n      path: `/api/v1/namespaces/${encodeURIComponent(namespace)}/secrets`,",
+      "to": "    const { text } = await call(`listing Secrets in ${namespace}`, {\n      method: 'GET',\n      path: `/api/v1/namespaces/${namespace}/secrets`,",
+      "kills": "a namespace name is pasted into the URL path, so a declaration is a way to address a different resource entirely"
+    },
+    {
+      "id": "a-non-2xx-is-a-success",
+      "file": "src/kube.js",
+      "from": "const ok = (status) => status >= 200 && status < 300;",
+      "to": "const ok = (status) => status >= 200;",
+      "kills": "a 409 AlreadyExists reads as a successful create, so the report says it provisioned things it was refused"
+    },
+    {
+      "id": "content-length-is-the-character-count",
+      "file": "src/kube.js",
+      "from": "      headers['content-length'] = String(Buffer.byteLength(payload));",
+      "to": "      headers['content-length'] = String(payload.length);",
+      "kills": "any multi-byte character in a name or a namespace truncates the body into invalid JSON, and the API's parse error names nothing that would lead anyone here"
+    },
+    {
+      "id": "an-empty-ca-is-accepted",
+      "file": "src/kube.js",
+      "from": "  if (String(ca).trim() === '') {",
+      "to": "  if (false) {",
+      "kills": "https.request falls back to Node's PUBLIC root store on an empty `ca`, turning 'verify against the cluster CA' into 'verify against the internet' while looking like a network fault"
+    },
+    {
+      "id": "the-token-keeps-its-newline",
+      "file": "src/kube.js",
+      "from": "    token = read(`${SERVICE_ACCOUNT_DIR}/token`).trim();",
+      "to": "    token = read(`${SERVICE_ACCOUNT_DIR}/token`);",
+      "kills": "the kubelet's trailing newline rides into the Authorization header, which Node rejects with a message about invalid characters that names neither the token nor this line"
+    },
+    {
+      "id": "no-host-is-tolerated",
+      "file": "src/kube.js",
+      "from": "  if (typeof host !== 'string' || host === '') {",
+      "to": "  if (false) {",
+      "kills": "the process starts outside a cluster and reports whatever a request to `undefined` does as an observation — and an observation that is wrong about what it enumerated is the failure this codebase is arranged around"
+    }
+  ]
+}
