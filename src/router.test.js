@@ -67,6 +67,16 @@ test('405 and 404 are different answers — a real path with the wrong method mu
   assert.equal((await respond(req('GET', '/reconcil'), handlers(), fresh())).status, 404);
 });
 
+test('GET /reconcile?x=1 is still 405 — the 405 must not derive the path a second way', async () => {
+  // Found by a surviving mutant, not by thinking of it. Recomputing `allowed`
+  // from the raw url inside the 405 branch passes every other test here and
+  // turns this case into a 404 — and a query string is exactly what a LINK
+  // carries, which is the one caller this refusal exists to make visible.
+  const r = await respond(req('GET', '/reconcile?from=some-link'), handlers(), fresh());
+  assert.equal(r.status, 405);
+  assert.deepEqual(r.body.allowed, ['POST']);
+});
+
 // ── /reconcile takes no body ────────────────────────────────────────────────
 
 test('a body on /reconcile is refused, and the handler does not run', async () => {
