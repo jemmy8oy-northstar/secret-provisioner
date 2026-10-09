@@ -1,0 +1,109 @@
+{
+  "declarations": [
+    {
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "keys": [
+        {
+          "key": "ConnectionStrings__DefaultConnection",
+          "type": "postgres-db",
+          "database": "aroundtheworld",
+          "role": "aroundtheworld"
+        },
+        {
+          "key": "Jwt__Secret",
+          "type": "random",
+          "bytes": 32
+        },
+        {
+          "key": "Admin__Key",
+          "type": "random",
+          "bytes": 16
+        },
+        {
+          "key": "PhotoStorage__AccessKeyId",
+          "type": "external"
+        },
+        {
+          "key": "PhotoStorage__SecretAccessKey",
+          "type": "external"
+        }
+      ]
+    }
+  ],
+  "observation": {
+    "namespaces": [
+      "balenthiran"
+    ],
+    "secrets": {},
+    "postgres": null
+  },
+  "plan": {
+    "steps": [
+      {
+        "kind": "create-secret",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "keys": [
+          {
+            "key": "Jwt__Secret",
+            "type": "random",
+            "source": "generate 32 random bytes, hex-encoded (openssl rand -hex 32)"
+          },
+          {
+            "key": "Admin__Key",
+            "type": "random",
+            "source": "generate 16 random bytes, hex-encoded (openssl rand -hex 16)"
+          }
+        ],
+        "detail": "create Secret balenthiran/around-the-world-secrets with 2 key(s)"
+      }
+    ],
+    "blocked": [
+      {
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "PhotoStorage__AccessKeyId",
+        "type": "external",
+        "action": "supply-externally",
+        "reason": "nothing can generate this value; a human must put it in balenthiran/around-the-world-secrets#PhotoStorage__AccessKeyId. Left as it is, the pod fails with CreateContainerConfigError minutes after it starts"
+      },
+      {
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "PhotoStorage__SecretAccessKey",
+        "type": "external",
+        "action": "supply-externally",
+        "reason": "nothing can generate this value; a human must put it in balenthiran/around-the-world-secrets#PhotoStorage__SecretAccessKey. Left as it is, the pod fails with CreateContainerConfigError minutes after it starts"
+      }
+    ],
+    "unknown": [
+      {
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "ConnectionStrings__DefaultConnection",
+        "type": "postgres-db",
+        "reason": "the Postgres server was not inspected — whether role and database already exist decides this entirely"
+      }
+    ],
+    "drift": [],
+    "unmanaged": [],
+    "noop": [],
+    "summary": {
+      "steps": 1,
+      "createSecret": 1,
+      "patchKey": 0,
+      "createRole": 0,
+      "createDatabase": 0,
+      "blocked": 2,
+      "unknown": 1,
+      "drift": 0,
+      "unmanaged": 0,
+      "noop": 0
+    }
+  }
+}
