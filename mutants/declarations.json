@@ -1,0 +1,222 @@
+{
+  "command": "dotnet test backend/Balenthiran.SecretProvisioner.slnx",
+  "mutants": [
+    {
+      "id": "head-is-resolved",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "if (branch == \"HEAD\")",
+      "to": "if (false)",
+      "kills": "HEAD_is_refused_rather_than_resolved: HEAD resolves to the default branch (main, the one Argo releases from) so provisioning stops being a precondition of release"
+    },
+    {
+      "id": "empty-branch-defaults",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "if (string.IsNullOrEmpty(branch))",
+      "to": "if (branch is null)",
+      "kills": "An_empty_branch_is_refused: an empty branch name is concatenated into the API URL"
+    },
+    {
+      "id": "listing-not-an-array-is-empty",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "if (listing.ValueKind != JsonValueKind.Array)",
+      "to": "if (false)",
+      "kills": "A_listing_that_is_not_an_array_is_a_FAILED_read: {\"message\":\"Not Found\"} must not become zero declarations"
+    },
+    {
+      "id": "zero-declarations-succeeds",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "if (blobs.Count == 0)",
+      "to": "if (false)",
+      "kills": "Zero_declarations_is_a_refusal: a wrong ref and an empty directory produce one identical clean reconcile"
+    },
+    {
+      "id": "url-not-pinned-to-the-commit",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "if (!url.Contains(sha, StringComparison.Ordinal))",
+      "to": "if (false)",
+      "kills": "A_download_URL_not_pinned_to_the_resolved_commit_is_refused: files from a different tree than the listing"
+    },
+    {
+      "id": "no-download-url-skipped",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "if (string.IsNullOrEmpty(url))",
+      "to": "if (false)",
+      "kills": "A_file_with_no_download_URL_is_refused_rather_than_skipped"
+    },
+    {
+      "id": "readme-excluded-by-name",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "name.EndsWith(DeclarationExt, StringComparison.Ordinal))\n            .ToList();",
+      "to": "name != \"README.md\")\n            .ToList();",
+      "kills": "README_is_excluded_by_EXTENSION_not_by_name"
+    },
+    {
+      "id": "extension-matched-ignoring-case",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "name.EndsWith(DeclarationExt, StringComparison.Ordinal))\n            .ToList();",
+      "to": "name.EndsWith(DeclarationExt, StringComparison.OrdinalIgnoreCase))\n            .ToList();",
+      "kills": "Only_the_top_level_is_enumerated: the validator's endsWith('.json') is case sensitive"
+    },
+    {
+      "id": "a-non-file-json-entry-is-not-refused",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "if (StringOf(entry, \"type\") != \"file\")",
+      "to": "if (false)",
+      "kills": "A_json_entry_that_is_NOT_a_plain_file_stops_the_run: a symlinked declaration fetched as if it were a file"
+    },
+    {
+      "id": "a-non-file-json-entry-is-dropped",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "name.EndsWith(DeclarationExt, StringComparison.Ordinal))\n            .ToList();",
+      "to": "name.EndsWith(DeclarationExt, StringComparison.Ordinal) && StringOf(entry, \"type\") == \"file\")\n            .ToList();",
+      "kills": "the tempting version: filter the odd entry out instead of refusing it, silently provisioning fewer apps than oke-fleet believes are declared"
+    },
+    {
+      "id": "order-is-githubs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "            .OrderBy(b => b.Name, StringComparer.Ordinal)\n",
+      "to": "",
+      "kills": "The_order_is_the_validators_order_whatever_order_GitHub_returns"
+    },
+    {
+      "id": "order-is-culture-aware",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": ".OrderBy(b => b.Name, StringComparer.Ordinal)",
+      "to": ".OrderBy(b => b.Name, StringComparer.InvariantCultureIgnoreCase)",
+      "kills": "The_sort_is_ordinal_so_upper_case_precedes_lower_case"
+    },
+    {
+      "id": "an-array-is-a-declaration",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "if (value.ValueKind != JsonValueKind.Object)",
+      "to": "if (value.ValueKind == JsonValueKind.Null)",
+      "kills": "An_array_is_not_a_declaration_even_though_it_is_an_object"
+    },
+    {
+      "id": "empty-keys-accepted",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": " || keys.GetArrayLength() == 0)",
+      "to": ")",
+      "kills": "Every_refusal_names_the_file: an app declaring no keys reports as provisioned while nothing was created"
+    },
+    {
+      "id": "empty-namespace-accepted",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "if (string.IsNullOrEmpty(StringOf(value, field)))",
+      "to": "if (StringOf(value, field) is null)",
+      "kills": "A_missing_namespace_or_secretName_is_refused: an empty address is not a default"
+    },
+    {
+      "id": "key-name-unchecked",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "if (string.IsNullOrEmpty(StringOf(entry, \"key\")))",
+      "to": "if (false)",
+      "kills": "A_key_entry_missing_key_or_type_is_refused_and_the_index_is_named"
+    },
+    {
+      "id": "key-type-unchecked",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "if (string.IsNullOrEmpty(StringOf(entry, \"type\")))",
+      "to": "if (false)",
+      "kills": "A_key_entry_missing_key_or_type_is_refused_and_the_index_is_named"
+    },
+    {
+      "id": "unknown-type-refused",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "// Deliberately no check against a list of valid types: the planner reports an unknown one.",
+      "to": "if (StringOf(entry, \"type\") is not (\"random\" or \"postgres-db\" or \"external\")) { throw Bad(name, \"unknown type\"); }",
+      "kills": "An_UNKNOWN_type_is_accepted_here: the schema lives in oke-fleet and is not copied"
+    },
+    {
+      "id": "the-file-is-not-named",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": "new($\"{name}: {why}\")",
+      "to": "new(why)",
+      "kills": "Every_refusal_names_the_file_it_came_from"
+    },
+    {
+      "id": "non-json-body-not-quoted",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/DeclarationParser.cs",
+      "from": " — the response began {Quote(body[..Math.Min(40, body.Length)])}",
+      "to": "",
+      "kills": "A_non_JSON_body_names_what_it_actually_got"
+    },
+    {
+      "id": "a-bad-status-is-ignored",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "from": "if (!response.IsSuccessStatusCode)",
+      "to": "if (false)",
+      "kills": "ONE_file_failing_fails_the_whole_load: a 403, 404 or 500 body is parsed as if it were content"
+    },
+    {
+      "id": "quota-left-out-of-the-message",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "from": "{(int)response.StatusCode}{quota}",
+      "to": "{(int)response.StatusCode}",
+      "kills": "A_rate_limited_request_says_so: a 403 that fixes itself and one that never will become the same message"
+    },
+    {
+      "id": "sha-is-not-checked",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "from": "if (sha.Length != 40 || !sha.All(char.IsAsciiHexDigitLower))",
+      "to": "if (false)",
+      "kills": "A_branch_that_resolves_to_something_that_is_not_a_SHA_stops_the_load"
+    },
+    {
+      "id": "sha-length-unchecked",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "from": "if (sha.Length != 40 || ",
+      "to": "if (sha.Length == 0 || ",
+      "kills": "A_branch_that_resolves_to_something_that_is_not_a_SHA: a truncated SHA"
+    },
+    {
+      "id": "sha-accepts-upper-case",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "from": "char.IsAsciiHexDigitLower",
+      "to": "char.IsAsciiHexDigit",
+      "kills": "A_branch_that_resolves_to_something_that_is_not_a_SHA: GitHub's SHAs are lower case"
+    },
+    {
+      "id": "a-partial-read-succeeds",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "from": "blobs.Select(blob => GetTextAsync(blob.Url, \"text/plain\", cancellationToken)));",
+      "to": "blobs.Select(async blob => { try { return await GetTextAsync(blob.Url, \"text/plain\", cancellationToken); } catch (DeclarationFetchException) { return \"{}\"; } }));",
+      "kills": "ONE_file_failing_fails_the_whole_load: the natural-looking alternative, one unreachable file leaves an app unprovisioned inside a reconcile that reports success"
+    },
+    {
+      "id": "the-branch-is-read-not-the-commit",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "from": "contents/{dir}?ref={sha}",
+      "to": "contents/{dir}?ref={branch}",
+      "kills": "The_load_resolves_the_branch_once: the listing comes from the branch rather than the resolved commit"
+    },
+    {
+      "id": "branch-checked-after-requests",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "from": "var branch = parser.AssertBranch(source.Branch);",
+      "to": "var branch = source.Branch;",
+      "kills": "HEAD_is_refused_before_a_single_request_is_made"
+    },
+    {
+      "id": "user-agent-dropped",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "from": "request.Headers.TryAddWithoutValidation(\"User-Agent\", UserAgent);",
+      "to": "request.Headers.TryAddWithoutValidation(\"User-Agent\", \"x\");",
+      "kills": "Every_request_identifies_itself"
+    },
+    {
+      "id": "sha-accept-header-dropped",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "from": "\"application/vnd.github.sha\"",
+      "to": "\"application/vnd.github+json\"",
+      "kills": "The_load_resolves_the_branch_once: the resolve must ask for the bare SHA"
+    },
+    {
+      "id": "default-source-is-main",
+      "file": "backend/Balenthiran.SecretProvisioner.DataModels/Models/DeclarationSourceLocation.cs",
+      "from": "Branch = \"dev\",",
+      "to": "Branch = \"main\",",
+      "kills": "The_default_source_is_dev_and_that_is_the_reason_the_provisioner_runs_before_the_release"
+    }
+  ]
+}
