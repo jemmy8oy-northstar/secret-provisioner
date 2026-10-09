@@ -1,0 +1,61 @@
+{
+  "command": "dotnet test backend/Balenthiran.SecretProvisioner.slnx",
+  "mutants": [
+    {
+      "id": "identifier-end-anchor-allows-trailing-newline",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/PostgresClient.cs",
+      "from": "[GeneratedRegex(@\"^[a-z_][a-z0-9_]*\\z\")]",
+      "to": "[GeneratedRegex(@\"^[a-z_][a-z0-9_]*$\")]",
+      "kills": "An_identifier_the_validator_would_reject_is_refused_everywhere(\"x\\n\")"
+    },
+    {
+      "id": "password-end-anchor-allows-trailing-newline",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/PostgresClient.cs",
+      "from": "[GeneratedRegex(@\"^[0-9a-f]+\\z\")]",
+      "to": "[GeneratedRegex(@\"^[0-9a-f]+$\")]",
+      "kills": "A_password_that_is_not_lowercase_hex_is_refused_and_not_echoed(\"abc\\n\")"
+    },
+    {
+      "id": "no-byte-limit",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/PostgresClient.cs",
+      "from": "System.Text.Encoding.UTF8.GetByteCount(value) > 63",
+      "to": "System.Text.Encoding.UTF8.GetByteCount(value) > 64",
+      "kills": "An_identifier_over_63_bytes_is_refused"
+    },
+    {
+      "id": "owner-unchecked",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/PostgresClient.cs",
+      "from": "        Identifier(owner, \"owner\");\n",
+      "to": "",
+      "kills": "An_identifier_the_validator_would_reject_is_refused_everywhere"
+    },
+    {
+      "id": "no-self-grant",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/PostgresClient.cs",
+      "from": "            $\"GRANT {role} TO CURRENT_USER WITH SET TRUE, INHERIT FALSE\",\n",
+      "to": "",
+      "kills": "Creating_a_role_is_a_plain_create_then_a_set_only_grant_to_itself"
+    },
+    {
+      "id": "grant-inherits",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/PostgresClient.cs",
+      "from": "WITH SET TRUE, INHERIT FALSE\",",
+      "to": "WITH SET TRUE, INHERIT TRUE\",",
+      "kills": "Creating_a_role_is_a_plain_create_then_a_set_only_grant_to_itself"
+    },
+    {
+      "id": "if-not-exists",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/PostgresClient.cs",
+      "from": "$\"CREATE ROLE {role} LOGIN PASSWORD",
+      "to": "$\"CREATE ROLE IF NOT EXISTS {role} LOGIN PASSWORD",
+      "kills": "Never_if_not_exists_and_never_alter"
+    },
+    {
+      "id": "password-echoed",
+      "file": "backend/Balenthiran.SecretProvisioner.Database/PostgresClient.cs",
+      "from": "throw new ArgumentException($\"refusing to create role {role}: the password is not lowercase hex",
+      "to": "throw new ArgumentException($\"refusing to create role {role} with {password}: the password is not lowercase hex",
+      "kills": "A_password_that_is_not_lowercase_hex_is_refused_and_not_echoed"
+    }
+  ]
+}
