@@ -143,70 +143,70 @@
     },
     {
       "id": "a-bad-status-is-ignored",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/GitHubDeclarationSource.cs",
       "from": "if (!response.IsSuccessStatusCode)",
       "to": "if (false)",
       "kills": "ONE_file_failing_fails_the_whole_load: a 403, 404 or 500 body is parsed as if it were content"
     },
     {
       "id": "quota-left-out-of-the-message",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/GitHubDeclarationSource.cs",
       "from": "{(int)response.StatusCode}{quota}",
       "to": "{(int)response.StatusCode}",
       "kills": "A_rate_limited_request_says_so: a 403 that fixes itself and one that never will become the same message"
     },
     {
       "id": "sha-is-not-checked",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/GitHubDeclarationSource.cs",
       "from": "if (sha.Length != 40 || !sha.All(char.IsAsciiHexDigitLower))",
       "to": "if (false)",
       "kills": "A_branch_that_resolves_to_something_that_is_not_a_SHA_stops_the_load"
     },
     {
       "id": "sha-length-unchecked",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/GitHubDeclarationSource.cs",
       "from": "if (sha.Length != 40 || ",
       "to": "if (sha.Length == 0 || ",
       "kills": "A_branch_that_resolves_to_something_that_is_not_a_SHA: a truncated SHA"
     },
     {
       "id": "sha-accepts-upper-case",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/GitHubDeclarationSource.cs",
       "from": "char.IsAsciiHexDigitLower",
       "to": "char.IsAsciiHexDigit",
       "kills": "A_branch_that_resolves_to_something_that_is_not_a_SHA: GitHub's SHAs are lower case"
     },
     {
       "id": "a-partial-read-succeeds",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/GitHubDeclarationSource.cs",
       "from": "blobs.Select(blob => GetTextAsync(blob.Url, \"text/plain\", cancellationToken)));",
       "to": "blobs.Select(async blob => { try { return await GetTextAsync(blob.Url, \"text/plain\", cancellationToken); } catch (DeclarationFetchException) { return \"{}\"; } }));",
       "kills": "ONE_file_failing_fails_the_whole_load: the natural-looking alternative, one unreachable file leaves an app unprovisioned inside a reconcile that reports success"
     },
     {
       "id": "the-branch-is-read-not-the-commit",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/GitHubDeclarationSource.cs",
       "from": "contents/{dir}?ref={sha}",
       "to": "contents/{dir}?ref={branch}",
       "kills": "The_load_resolves_the_branch_once: the listing comes from the branch rather than the resolved commit"
     },
     {
       "id": "branch-checked-after-requests",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/GitHubDeclarationSource.cs",
       "from": "var branch = parser.AssertBranch(source.Branch);",
       "to": "var branch = source.Branch;",
       "kills": "HEAD_is_refused_before_a_single_request_is_made"
     },
     {
       "id": "user-agent-dropped",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/GitHubDeclarationSource.cs",
       "from": "request.Headers.TryAddWithoutValidation(\"User-Agent\", UserAgent);",
       "to": "request.Headers.TryAddWithoutValidation(\"User-Agent\", \"x\");",
       "kills": "Every_request_identifies_itself"
     },
     {
       "id": "sha-accept-header-dropped",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/GitHubDeclarationSource.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/GitHubDeclarationSource.cs",
       "from": "\"application/vnd.github.sha\"",
       "to": "\"application/vnd.github+json\"",
       "kills": "The_load_resolves_the_branch_once: the resolve must ask for the bare SHA"

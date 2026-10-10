@@ -4,7 +4,7 @@ using Balenthiran.SecretProvisioner.Abstractions.Services;
 using Balenthiran.SecretProvisioner.DataModels.Models;
 using Npgsql;
 
-namespace Balenthiran.SecretProvisioner.Database;
+namespace Balenthiran.SecretProvisioner.Services.Clients;
 
 /// <summary>
 /// The Postgres edge, over Npgsql. See <see cref="IPostgresClient"/> for the contract.

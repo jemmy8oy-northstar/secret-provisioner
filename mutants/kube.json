@@ -3,329 +3,329 @@
   "mutants": [
     {
       "id": "failed-namespace-becomes-empty",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "results.Add(new NamespaceListing { Namespace = ns, Error = Redact(e.Message) });",
       "to": "results.Add(new NamespaceListing { Namespace = ns, Listing = new KubeSecretList { Items = [] } });",
       "kills": "A_failed_namespace_carries_an_error_and_NO_listing: a transient 503 becomes 'this namespace holds no Secrets', so the planner plans a create for a Secret that already exists"
     },
     {
       "id": "failed-namespace-is-dropped",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "results.Add(new NamespaceListing { Namespace = ns, Error = Redact(e.Message) });",
       "to": "_ = e;",
       "kills": "A_failed_namespace_carries_an_error_and_NO_listing: nothing destructive follows, but the run reports undecidable keys with no stated reason"
     },
     {
       "id": "one-failure-stops-the-rest",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "        foreach (var ns in namespaces)\n        {\n            try",
       "to": "        foreach (var ns in namespaces)\n        {\n            if (results.Any(r => r.Error is not null))\n            {\n                break;\n            }\n\n            try",
       "kills": "One_namespace_failing_does_not_stop_the_others_being_read"
     },
     {
       "id": "create-becomes-a-replace",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "            HttpMethod.Post,\n            $\"/api/v1/namespaces/{Uri.EscapeDataString(ns)}/secrets\",",
       "to": "            HttpMethod.Put,\n            $\"/api/v1/namespaces/{Uri.EscapeDataString(ns)}/secrets/{Uri.EscapeDataString(name)}\",",
       "kills": "CreateSecret_POSTs_to_the_collection_with_stringData: an unconditional replace that discards every key not in data and never returns the 409"
     },
     {
       "id": "create-becomes-a-patch",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "            HttpMethod.Post,",
       "to": "            HttpMethod.Patch,",
       "kills": "CreateSecret_POSTs_to_the_collection_with_stringData: a merge patch to the collection overwrites instead of conflicting"
     },
     {
       "id": "data-instead-of-stringData",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "                stringData = data,",
       "to": "                data,",
       "kills": "CreateSecret_POSTs_to_the_collection_with_stringData: plaintext sent where the API expects base64, so every value decodes to garbage"
     },
     {
       "id": "patch-is-unconditional",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "metadata = new { resourceVersion }, stringData = new Dictionary",
       "to": "stringData = new Dictionary",
       "kills": "PatchSecretKey_reads_then_sends_a_conditional_merge_patch_of_one_key: the check becomes a plain check-then-act race"
     },
     {
       "id": "the-patch-resends-every-value",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "metadata = new { resourceVersion }, stringData = new Dictionary",
       "to": "metadata = new { resourceVersion }, data = secret.Data, stringData = new Dictionary",
       "kills": "PatchSecretKey_reads_then_sends_a_conditional_merge_patch_of_one_key: every other key's value is sent back over the wire"
     },
     {
       "id": "patch-is-a-put",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "            HttpMethod.Patch,",
       "to": "            HttpMethod.Put,",
       "kills": "PatchSecretKey_reads_then_sends_a_conditional_merge_patch_of_one_key: a PUT replaces the whole Secret"
     },
     {
       "id": "patch-content-type-is-plain-json",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "\"application/merge-patch+json\"",
       "to": "\"application/json\"",
       "kills": "PatchSecretKey_reads_then_sends_a_conditional_merge_patch_of_one_key: the API rejects the patch or reads it as another patch type"
     },
     {
       "id": "existing-key-is-overwritten",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "if (observer.KeysOf(secret).Contains(key))",
       "to": "if (observer.KeysOf(secret).Contains(key + \"\\0\"))",
       "kills": "An_existing_key_is_refused_this_provisioner_never_overwrites: the provisioner overwrites a value it did not create"
     },
     {
       "id": "a-missing-resource-version-is-tolerated",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "if (string.IsNullOrEmpty(resourceVersion))",
       "to": "if (secret is null)",
       "kills": "A_Secret_returned_without_a_resourceVersion_is_refused_not_patched_unconditionally: the precondition is silently dropped from the patch"
     },
     {
       "id": "an-empty-resource-version-is-tolerated",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "if (string.IsNullOrEmpty(resourceVersion))",
       "to": "if (resourceVersion is null)",
       "kills": "A_Secret_with_an_empty_resourceVersion_is_refused: an empty precondition is no precondition"
     },
     {
       "id": "the-refusal-quotes-the-secret",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "the key is already present, and this",
       "to": "the key is already present in {JsonSerializer.Serialize(secret)}, and this",
       "kills": "No_value_from_a_200_response_reaches_an_error_message: a 200 body carries every value in the Secret and the executor copies messages into its report"
     },
     {
       "id": "the-token-is-not-redacted-on-transport-failure",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "throw new KubernetesApiException(Redact($\"{what}: {Describe(e)}\"));",
       "to": "throw new KubernetesApiException($\"{what}: {Describe(e)}\");",
       "kills": "The_service_account_token_never_reaches_an_error_message: a TLS failure publishes the service account token"
     },
     {
       "id": "the-token-is-not-redacted-from-a-quoted-body",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "throw new KubernetesApiException(Redact($\"{what}: the Kubernetes API answered {status} — {message}\"), status, reason);",
       "to": "throw new KubernetesApiException($\"{what}: the Kubernetes API answered {status} — {message}\", status, reason);",
       "kills": "A_token_echoed_back_by_the_server_is_redacted_from_the_quoted_body"
     },
     {
       "id": "redaction-ignores-the-token",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "token.Length == 0 ? text : text.Replace(token, \"<redacted>\", StringComparison.Ordinal);",
       "to": "text;",
       "kills": "The_service_account_token_never_reaches_an_error_message"
     },
     {
       "id": "every-error-is-redacted",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "return (message ?? text[..Math.Min(500, text.Length)], reason);",
       "to": "return (\"<redacted>\", reason);",
       "kills": "A_non_2xx_body_IS_quoted_because_that_is_the_only_diagnosis_anyone_gets: 'redact everything' is trivially safe and useless"
     },
     {
       "id": "the-reason-is-dropped",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "return (message ?? text[..Math.Min(500, text.Length)], reason);",
       "to": "return (message ?? text[..Math.Min(500, text.Length)], null);",
       "kills": "A_409_from_create_surfaces_as_a_Conflict_the_caller_can_branch_on"
     },
     {
       "id": "an-unparseable-200-is-an-empty-listing",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "? throw new KubernetesApiException($\"listing Secrets in {ns}: the API answered 200 with something that is not a v1.SecretList\")",
       "to": "? new KubeSecretList { Items = [] }",
       "kills": "A_200_that_is_not_a_SecretList_is_a_failure_not_an_empty_namespace: a proxy answering 200 with HTML reads as an empty namespace"
     },
     {
       "id": "the-namespace-is-concatenated",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "HttpMethod.Get, $\"/api/v1/namespaces/{Uri.EscapeDataString(ns)}/secrets\"",
       "to": "HttpMethod.Get, $\"/api/v1/namespaces/{ns}/secrets\"",
       "kills": "A_namespace_name_is_encoded_into_the_path_never_concatenated"
     },
     {
       "id": "the-secret-name-is-concatenated",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "secrets/{Uri.EscapeDataString(name)}\";",
       "to": "secrets/{name}\";",
       "kills": "The_name_of_a_patched_Secret_is_encoded_into_the_path"
     },
     {
       "id": "a-non-2xx-is-a-success",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "if (status is < 200 or >= 300)",
       "to": "if (status is < 200)",
       "kills": "Any_non_2xx_is_a_failure: a refused create reads as provisioned"
     },
     {
       "id": "a-409-is-a-success",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "if (status is < 200 or >= 300)",
       "to": "if (status is < 200 or >= 300 and not 409)",
       "kills": "A_409_from_create_surfaces_as_a_Conflict_the_caller_can_branch_on: the create-only guarantee is swallowed"
     },
     {
       "id": "content-is-not-utf8",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "JsonSerializer.Serialize(body, Options), Encoding.UTF8)",
       "to": "JsonSerializer.Serialize(body, Options), Encoding.Latin1)",
       "kills": "Content_length_is_the_byte_length_not_the_character_count: a multi-byte name is mangled or truncated"
     },
     {
       "id": "multi-byte-names-are-escaped-to-ascii",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,",
       "to": "Encoder = JavaScriptEncoder.Default,",
       "kills": "Content_length_is_the_byte_length_not_the_character_count: the fixture stops being multi-byte on the wire and the rule asserts nothing"
     },
     {
       "id": "authorization-header-is-dropped",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesClient.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "request.Headers.Authorization = new AuthenticationHeaderValue(\"Bearer\", token);",
       "to": "request.Headers.Authorization = null;",
       "kills": "ListSecrets_asks_the_right_URL_with_the_right_credential"
     },
     {
       "id": "an-empty-ca-is-accepted",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/InClusterConfig.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/InClusterConfig.cs",
       "from": "if (string.IsNullOrWhiteSpace(ca))",
       "to": "if (string.IsNullOrEmpty(ca))",
       "kills": "An_empty_CA_is_refused_because_the_fallback_is_the_public_root_store: a whitespace-only CA file turns 'verify against the cluster CA' into 'verify against the internet'"
     },
     {
       "id": "an-empty-ca-is-not-checked-at-all",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/InClusterConfig.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/InClusterConfig.cs",
       "from": "if (string.IsNullOrWhiteSpace(ca))",
       "to": "if (ca is null)",
       "kills": "An_empty_CA_is_refused_because_the_fallback_is_the_public_root_store"
     },
     {
       "id": "the-token-keeps-its-newline",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/InClusterConfig.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/InClusterConfig.cs",
       "from": "token = read($\"{ServiceAccountDirectory}/token\").Trim();",
       "to": "token = read($\"{ServiceAccountDirectory}/token\");",
       "kills": "In_cluster_config_reads_the_kubelet_mount_and_the_env: the kubelet's trailing newline rides into the Authorization header"
     },
     {
       "id": "an-empty-token-is-accepted",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/InClusterConfig.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/InClusterConfig.cs",
       "from": "if (token == string.Empty)",
       "to": "if (token is null)",
       "kills": "An_empty_token_is_refused"
     },
     {
       "id": "an-empty-host-is-tolerated",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/InClusterConfig.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/InClusterConfig.cs",
       "from": "if (string.IsNullOrEmpty(host))",
       "to": "if (host is null)",
       "kills": "An_empty_host_is_refused_as_well_as_a_missing_one"
     },
     {
       "id": "no-host-is-tolerated",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/InClusterConfig.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/InClusterConfig.cs",
       "from": "if (string.IsNullOrEmpty(host))",
       "to": "if (host == \"\\0\")",
       "kills": "No_host_means_no_default_it_refuses_rather_than_guessing_a_cluster: the process starts outside a cluster and reports whatever a request to nothing does as an observation"
     },
     {
       "id": "port-zero-is-accepted",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/InClusterConfig.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/InClusterConfig.cs",
       "from": "portNumber < 1 ||",
       "to": "portNumber < 0 ||",
       "kills": "A_bad_port_is_refused_rather_than_composed_into_a_URL"
     },
     {
       "id": "port-65536-is-accepted",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/InClusterConfig.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/InClusterConfig.cs",
       "from": "portNumber > 65535",
       "to": "portNumber > 65536",
       "kills": "A_bad_port_is_refused_rather_than_composed_into_a_URL"
     },
     {
       "id": "port-65535-is-refused",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/InClusterConfig.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/InClusterConfig.cs",
       "from": "portNumber > 65535",
       "to": "portNumber >= 65535",
       "kills": "The_port_range_is_inclusive_at_both_ends"
     },
     {
       "id": "port-one-is-refused",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/InClusterConfig.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/InClusterConfig.cs",
       "from": "portNumber < 1 ||",
       "to": "portNumber < 2 ||",
       "kills": "The_port_range_is_inclusive_at_both_ends"
     },
     {
       "id": "port-fallback-skips-the-plain-service-port",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/InClusterConfig.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/InClusterConfig.cs",
       "from": "?? env(\"KUBERNETES_SERVICE_PORT\") ??",
       "to": "??",
       "kills": "The_port_falls_back_to_the_plain_service_port_and_then_to_443"
     },
     {
       "id": "unreadable-files-lose-the-automount-hint",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/InClusterConfig.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/InClusterConfig.cs",
       "from": ". The Deployment must not set automountServiceAccountToken: false",
       "to": ".",
       "kills": "Unreadable_service_account_files_name_the_automount_setting"
     },
     {
       "id": "the-system-store-is-trusted",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/ClusterCertificateValidator.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/ClusterCertificateValidator.cs",
       "from": "chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;",
       "to": "chain.ChainPolicy.TrustMode = X509ChainTrustMode.System;",
       "kills": "A_certificate_signed_by_the_configured_CA_is_trusted: the cluster CA is no longer the trust anchor"
     },
     {
       "id": "any-chain-is-trusted",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/ClusterCertificateValidator.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/ClusterCertificateValidator.cs",
       "from": "return chain.Build(leaf);",
       "to": "return true;",
       "kills": "A_certificate_signed_by_a_different_CA_is_rejected: validation turned off, so the pod hands its token to whatever answers"
     },
     {
       "id": "a-name-mismatch-is-tolerated",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/ClusterCertificateValidator.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/ClusterCertificateValidator.cs",
       "from": " || errors.HasFlag(SslPolicyErrors.RemoteCertificateNameMismatch)",
       "to": "",
       "kills": "A_name_mismatch_or_a_missing_certificate_is_rejected_even_when_the_chain_is_good"
     },
     {
       "id": "a-missing-certificate-is-tolerated",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/ClusterCertificateValidator.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/ClusterCertificateValidator.cs",
       "from": "errors.HasFlag(SslPolicyErrors.RemoteCertificateNotAvailable) || ",
       "to": "",
       "kills": "A_name_mismatch_or_a_missing_certificate_is_rejected_even_when_the_chain_is_good"
     },
     {
       "id": "an-empty-ca-bundle-is-accepted",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/ClusterCertificateValidator.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/ClusterCertificateValidator.cs",
       "from": "if (roots.Count == 0)",
       "to": "if (roots.Count < 0)",
       "kills": "A_CA_with_no_certificate_in_it_is_refused"
     },
     {
       "id": "the-factory-skips-the-validator",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesHttpClientFactory.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesHttpClientFactory.cs",
       "from": "validator.IsTrusted(certificate, chain, errors)",
       "to": "true",
       "kills": "A_server_certified_by_anyone_else_is_refused_and_the_token_is_not_handed_over: certificate validation switched off"
     },
     {
       "id": "the-factory-drops-the-validator",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesHttpClientFactory.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesHttpClientFactory.cs",
       "from": "SslOptions = { RemoteCertificateValidationCallback = (_, certificate, chain, errors) => validator.IsTrusted(certificate, chain, errors) },",
       "to": "",
       "kills": "A_server_certified_by_the_cluster_CA_is_reached_through_the_real_client: the public store decides instead of the cluster CA"
     },
     {
       "id": "the-timeout-is-unbounded",
-      "file": "backend/Balenthiran.SecretProvisioner.Database/KubernetesHttpClientFactory.cs",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesHttpClientFactory.cs",
       "from": "Timeout = DefaultTimeout,",
       "to": "Timeout = Timeout.InfiniteTimeSpan,",
       "kills": "The_factory_builds_a_thirty_second_client_for_the_configured_host_and_port: a hung API call holds a reconcile open forever"

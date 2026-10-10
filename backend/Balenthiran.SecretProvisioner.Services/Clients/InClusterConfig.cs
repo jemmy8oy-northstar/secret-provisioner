@@ -3,7 +3,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Balenthiran.SecretProvisioner.Abstractions.Exceptions;
 
-namespace Balenthiran.SecretProvisioner.Database;
+namespace Balenthiran.SecretProvisioner.Services.Clients;
 
 /// <summary>
 /// The in-cluster connection details, from the kubelet's mount and the environment. Port of

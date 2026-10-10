@@ -1,6 +1,6 @@
 using System.Net.Http;
 
-namespace Balenthiran.SecretProvisioner.Database;
+namespace Balenthiran.SecretProvisioner.Services.Clients;
 
 /// <summary>
 /// Builds the real <see cref="HttpClient"/> for the API server: deliberately the dullest code in the

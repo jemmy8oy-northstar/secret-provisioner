@@ -1,4 +1,4 @@
-using Balenthiran.SecretProvisioner.Database;
+using Balenthiran.SecretProvisioner.Services.Clients;
 using Npgsql;
 
 namespace Balenthiran.SecretProvisioner.Tests;
