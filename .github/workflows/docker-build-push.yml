@@ -1,0 +1,117 @@
+name: Build and Push Docker Images to OCIR
+
+# Kit's workflow with the Kit-only parts taken out. secret-provisioner is ONE
+# image (the C# service in `backend/`, built by the root Dockerfile) with no
+# frontend and no ingress, so there is no base path to read and bake in: one
+# build, one tag, one line of helm/values.yaml to patch.
+#
+# Everything else is the estate's shape, unchanged: the GitOps App token,
+# GitVersion (Mainline — see GitVersion.yml, without which every build re-tags
+# 0.1.0 and ArgoCD sees no change), the native ARM64 runner, OCIR, and the
+# commit-back that writes the new tag into helm/values.yaml for ArgoCD.
+#
+# ⚠️ It needs the Dockerfile and helm/values.yaml on `main`. Both arrive by their
+# own PRs; a promotion without them fails at the build or yq step, loudly.
+#
+# Required repository variables:  OCIR_REGISTRY, OCIR_NAMESPACE, GIT_OPS_APP_ID
+# Required repository secrets:    OCIR_USERNAME, OCIR_AUTH_TOKEN,
+#                                 GITOPS_APP_PRIVATE_KEY
+# All six are org-level already; nothing new is needed here.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  IMAGE: ${{ github.event.repository.name }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-24.04-arm # Native ARM64 runner — no QEMU emulation overhead
+
+    steps:
+      # --- 1. GENERATE SHORT-LIVED GITOPS BOT TOKEN ---
+      - name: Generate GitOps Token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.GIT_OPS_APP_ID }} # Pulled from global Org variables
+          private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }} # Pulled from global Org secrets
+
+      # --- 2. CHECKOUT CODE USING THE APP TOKEN ---
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for GitVersion to read full git history
+          token: ${{ steps.app-token.outputs.token }} # 🔑 Overrides the restricted default token
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v1
+        with:
+          versionSpec: "5.x"
+
+      - name: Determine version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v1
+
+      - name: Install yq (YAML Processor)
+        uses: mikefarah/yq@v4.44.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Oracle Container Image Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.OCIR_REGISTRY }}
+          username: ${{ secrets.OCIR_USERNAME }}
+          password: ${{ secrets.OCIR_AUTH_TOKEN }}
+
+      # --- 3. BUILD & PUSH THE ONE IMAGE ---
+      - name: Build and push secret-provisioner
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ vars.OCIR_REGISTRY }}/${{ vars.OCIR_NAMESPACE }}/${{ env.IMAGE }}:latest
+            ${{ vars.OCIR_REGISTRY }}/${{ vars.OCIR_NAMESPACE }}/${{ env.IMAGE }}:${{ steps.gitversion.outputs.semVer }}
+          cache-from: type=gha,scope=secret-provisioner
+          cache-to: type=gha,mode=max,scope=secret-provisioner
+
+      # --- 4. THE GITOPS AUTO-UPDATE LOOP ---
+      - name: Update Helm Chart Values File
+        run: |
+          set -euo pipefail
+          NEW_VERSION="${{ steps.gitversion.outputs.semVer }}"
+          VALUES_FILE="helm/values.yaml"
+
+          # Refused rather than skipped: yq on a missing entry patches nothing and
+          # exits 0, so the build would "succeed" and ArgoCD would never move.
+          if [ -z "$(yq -r '.apps[] | select(.name == "secret-provisioner") | .name' $VALUES_FILE)" ]; then
+            echo "::error::no .apps[name=secret-provisioner] in $VALUES_FILE — nothing to patch the new tag into"
+            exit 1
+          fi
+
+          echo "Patching the secret-provisioner image tag in $VALUES_FILE to version: $NEW_VERSION"
+          yq -i '(.apps[] | select(.name == "secret-provisioner") | .image.tag) = "'"$NEW_VERSION"'"' $VALUES_FILE
+
+      - name: Commit and Push Image Tag Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add helm/values.yaml
+
+          if git diff --staged --quiet; then
+            echo "No manifest changes required. Version is already up to date."
+          else
+            git commit -m "chore(gitops): release version ${{ steps.gitversion.outputs.semVer }} [skip ci]"
+
+            # This cleanly pushes back using the App token set during checkout
+            git push origin HEAD
+          fi
