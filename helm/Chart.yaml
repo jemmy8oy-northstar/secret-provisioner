@@ -1,0 +1,9 @@
+apiVersion: v2
+name: secret-provisioner
+# One container, no frontend and NO INGRESS (claude-code-bot#97: "internal only").
+# Reaching it means `kubectl port-forward`, which needs cluster credentials. The
+# chart is otherwise Kit's, so the shape a reader recognises is the shape they get.
+description: secret-provisioner — creates the Secrets and Postgres databases oke-fleet declares, create-only
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -1,0 +1,75 @@
+{{- range .Values.apps }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "app.fullname" $ }}-{{ .name }}
+  labels:
+    app: {{ .name }}
+spec:
+  replicas: {{ .replicas }}
+  # Recreate, not RollingUpdate: during a rolling update the old and new pods
+  # overlap, and each holds its own reconcile lock (values.yaml, replicas).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ .name }}
+      release: {{ include "app.fullname" $ }}
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+        release: {{ include "app.fullname" $ }}
+    spec:
+      # The Kubernetes client authenticates with this account's mounted token
+      # (InClusterConfig.cs), so the mount must stay on — it is the default, and
+      # it is written out so nobody "hardens" it away.
+      serviceAccountName: {{ include "app.fullname" $ }}
+      automountServiceAccountToken: true
+      # runAsUser is NUMERIC on purpose. The Dockerfile says `USER app`, a name,
+      # and with runAsNonRoot alone the kubelet cannot prove a name is not root,
+      # so it refuses to start the container (CreateContainerConfigError).
+      # 1654 is `app` in every .NET 8+ aspnet image ($APP_UID).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+      containers:
+        - name: {{ .name }}
+          image: "{{ .image.repository }}:{{ .image.tag }}"
+          imagePullPolicy: {{ .image.pullPolicy }}
+          ports:
+            - containerPort: {{ .containerPort }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .resources | nindent 12 }}
+          {{- with .env }}
+          env:
+            {{- range . }}
+            - name: {{ .name }}
+              {{- if .value }}
+              value: {{ .value | quote }}
+              {{- else if .valueFrom }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .valueFrom.secretKeyRef.name }}
+                  key: {{ .valueFrom.secretKeyRef.key }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+      {{- with .nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+{{- end }}

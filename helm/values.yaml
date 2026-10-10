@@ -1,0 +1,57 @@
+fullnameOverride: "secret-provisioner"
+
+registryPrefix: "lhr.ocir.io/lr7uc6l49odc" # shared OCIR namespace
+
+# 🔑 THE NAMESPACES THIS POD MAY WRITE SECRETS IN, and the only ones. Each one gets
+# a Role and a RoleBinding (templates/rbac.yaml) — not a ClusterRole, because a
+# cluster-wide grant on Secrets would let this pod write into kube-system and argocd.
+#
+# A namespace declared in oke-fleet/secrets/*.json but missing here is SAFE: the
+# list call is refused, the observer leaves that namespace out of the namespaces
+# it enumerated, and the planner reports its keys as `unknown` instead of acting.
+# So a forgotten line here shows up in GET /plan; it never turns into a write.
+#
+# Every declaration in oke-fleet today names `balenthiran`.
+targetNamespaces:
+  - balenthiran
+
+apps:
+  # ONE entry, in the `.apps[]` shape Kit uses, so the image workflow can patch the
+  # tag the same way: `(.apps[] | select(.name == "secret-provisioner") | .image.tag)`.
+  - name: secret-provisioner
+    image:
+      repository: lhr.ocir.io/lr7uc6l49odc/secret-provisioner
+      # Patched by the image workflow on every push to main (GitOps), once it exists.
+      tag: latest
+      pullPolicy: Always
+    containerPort: 8080
+    # ONE replica. The router runs one reconcile at a time (a lock in the process);
+    # two replicas would be two locks, and two reconciles could each plan a create
+    # for the same Secret.
+    replicas: 1
+    service:
+      port: 80
+      targetPort: 8080
+    env:
+      # ⚠️ CREATED BY HAND — the one credential this service cannot create for
+      # itself (ProvisionerSettings.cs). A connection string for a NON-superuser
+      # role with CREATEROLE and CREATEDB (README, "the shape"):
+      #
+      #   kubectl create secret generic secret-provisioner-postgres -n balenthiran \
+      #     --from-literal=ConnectionStrings__DefaultConnection='Host=...;Port=5432;Database=postgres;Username=provisioner;Password=...'
+      #
+      # Required, not optional: without it the process exits at start rather than
+      # serving a /status that cannot see Postgres.
+      #
+      # The Host in it is ALSO the host written into every connection string this
+      # service composes for an app, so use the in-cluster service name the apps
+      # reach Postgres by — not a port-forward or an external address.
+      - name: ConnectionStrings__DefaultConnection
+        valueFrom:
+          secretKeyRef:
+            name: secret-provisioner-postgres
+            key: ConnectionStrings__DefaultConnection
+    resources: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
