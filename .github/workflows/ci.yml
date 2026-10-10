@@ -1,0 +1,64 @@
+name: CI
+
+# Until this file, no workflow ran on this repo at all: the C# port's 257 tests
+# were something only the bot had ever observed, on its own machine. A suite no
+# gating job runs is a claim, not a check.
+#
+# Supersedes #3, which gated the JavaScript alone and predates the port.
+#
+# Job ids are the check contexts GitHub reports, and a ruleset requires them by
+# exact string. This repo has no rulesets today; if one is added, require
+# `backend` (and `legacy-js` while it exists) under those names.
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore ./backend
+
+      - name: Build
+        run: dotnet build ./backend --no-restore --configuration Release
+
+      # `dotnet test` over a solution containing no test project exits 0 having
+      # asserted nothing — a green tick that means the opposite of what it looks
+      # like. This solution has one; keep it that way.
+      - name: Test
+        run: >
+          dotnet test ./backend
+          --no-build
+          --configuration Release
+          --verbosity normal
+
+  # The JavaScript the port was ported from, still on `dev` (`src/observe.js`).
+  # Delete this job in the same pull request that deletes `src/`.
+  legacy-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # No `npm ci`: no dependencies, so no lockfile, and `npm ci` fails outright
+      # without one.
+      - name: Test
+        run: npm test
