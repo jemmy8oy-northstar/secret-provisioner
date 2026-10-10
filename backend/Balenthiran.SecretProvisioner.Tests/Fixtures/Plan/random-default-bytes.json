@@ -1,0 +1,59 @@
+{
+  "declarations": [
+    {
+      "app": "d",
+      "namespace": "balenthiran",
+      "secretName": "d-secrets",
+      "keys": [
+        {
+          "key": "K",
+          "type": "random"
+        }
+      ]
+    }
+  ],
+  "observation": {
+    "namespaces": [
+      "balenthiran"
+    ],
+    "secrets": {},
+    "postgres": {
+      "roles": [],
+      "databases": []
+    }
+  },
+  "plan": {
+    "steps": [
+      {
+        "kind": "create-secret",
+        "namespace": "balenthiran",
+        "secretName": "d-secrets",
+        "keys": [
+          {
+            "key": "K",
+            "type": "random",
+            "source": "generate 32 random bytes, hex-encoded (openssl rand -hex 32)"
+          }
+        ],
+        "detail": "create Secret balenthiran/d-secrets with 1 key(s)"
+      }
+    ],
+    "blocked": [],
+    "unknown": [],
+    "drift": [],
+    "unmanaged": [],
+    "noop": [],
+    "summary": {
+      "steps": 1,
+      "createSecret": 1,
+      "patchKey": 0,
+      "createRole": 0,
+      "createDatabase": 0,
+      "blocked": 0,
+      "unknown": 0,
+      "drift": 0,
+      "unmanaged": 0,
+      "noop": 0
+    }
+  }
+}

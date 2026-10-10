@@ -51,17 +51,47 @@ The password generator must therefore be safe to publish **by construction** —
 published was weak when it was private; publication only removes the option of
 getting away with it.
 
+## It is written in C#
+
+James chose C# on
+[kit#176](https://github.com/jemmy8oy-northstar/kit/issues/176) (2026-10-09),
+which matches his house stack (.NET backend, React frontend, optional Postgres).
+The code lives in `backend/` in web-template's layout: interfaces in
+`Abstractions`, models in `DataModels`, pure logic in `Services`, and the
+Kubernetes, Postgres and GitHub clients in `Database`. The JavaScript in `src/`
+is what it was ported from. It is deleted once the C# service runs.
+
 ## What is built
 
-- ✅ **The planner** — pure: declarations + an observation → the list of actions.
-  Lives in
-  [`oke-fleet`](https://github.com/jemmy8oy-northstar/oke-fleet/blob/dev/scripts/plan-secrets.mjs)
-  next to the schema it reads, and is consumed here as source rather than as a
-  package.
-- ✅ **The observer** (`src/observe.js`) — turns Kubernetes and Postgres
+- ✅ **The planner** (`Services/Planner.cs`): pure, taking declarations and an
+  observation and returning the list of actions. It moved here from
+  [oke-fleet#9](https://github.com/jemmy8oy-northstar/oke-fleet/pull/9)
+  under James's ruling on
+  [#6](https://github.com/jemmy8oy-northstar/secret-provisioner/issues/6): the
+  planner lives with its only consumer, and the declarations stay in
+  `oke-fleet`. It is scored against the JavaScript planner's own output; see
+  below.
+- ✅ **The observer** (`Services/Observer.cs`): turns Kubernetes and Postgres
   responses into that observation. Pure; the clients live at the edge.
-- ⬜ The Kubernetes and Postgres clients, the executor, the HTTP surface.
+- ✅ **The contracts** for the Kubernetes, Postgres and declarations clients
+  (`Abstractions/Services`).
+- ⬜ The executor, the three clients and the HTTP surface.
 - ⬜ `Dockerfile`, chart, build workflow.
+
+### How the port is checked
+
+`tools/plan-goldens.mjs` runs the JavaScript planner from `oke-fleet` over 19
+scenarios. It writes each scenario's input together with the planner's real
+output to `backend/Balenthiran.SecretProvisioner.Tests/Fixtures/Plan/`. The C#
+planner must produce the same plan for every one. The expected side never
+passes through C#, so a serialiser bug can't hide by appearing on both sides.
+
+`mutants/planner.json` lists 15 specific ways to break the planner and the
+observer, each naming the test that must fail. All 15 are killed:
+
+```sh
+node ../claude-code-bot/tools/mutate-spec.js mutants/planner.json --keep-going
+```
 
 ### The one property the observer exists to hold
 
@@ -81,7 +111,8 @@ seam is pinned from both sides, and a test asserts each half.
 ## Running the tests
 
 ```sh
-npm test
+dotnet test backend/Balenthiran.SecretProvisioner.slnx   # the C# service
+npm test                                                  # the JavaScript it was ported from
 ```
 
 ⚠️ Not `node --test src/` — naming a directory makes Node resolve it as a module

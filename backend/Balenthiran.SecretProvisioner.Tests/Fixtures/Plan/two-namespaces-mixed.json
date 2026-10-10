@@ -1,0 +1,178 @@
+{
+  "declarations": [
+    {
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "keys": [
+        {
+          "key": "ConnectionStrings__DefaultConnection",
+          "type": "postgres-db",
+          "database": "aroundtheworld",
+          "role": "aroundtheworld"
+        },
+        {
+          "key": "Jwt__Secret",
+          "type": "random",
+          "bytes": 32
+        },
+        {
+          "key": "Admin__Key",
+          "type": "random",
+          "bytes": 16
+        },
+        {
+          "key": "PhotoStorage__AccessKeyId",
+          "type": "external"
+        },
+        {
+          "key": "PhotoStorage__SecretAccessKey",
+          "type": "external"
+        }
+      ]
+    },
+    {
+      "app": "k",
+      "namespace": "kit",
+      "secretName": "kit-secrets",
+      "keys": [
+        {
+          "key": "S",
+          "type": "random"
+        }
+      ]
+    }
+  ],
+  "observation": {
+    "namespaces": [
+      "balenthiran",
+      "kit"
+    ],
+    "secrets": {
+      "kit/kit-secrets": [
+        "Other"
+      ],
+      "balenthiran/around-the-world-secrets": [
+        "Jwt__Secret"
+      ]
+    },
+    "postgres": {
+      "roles": [],
+      "databases": []
+    }
+  },
+  "plan": {
+    "steps": [
+      {
+        "kind": "create-role",
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "ConnectionStrings__DefaultConnection",
+        "type": "postgres-db",
+        "role": "aroundtheworld",
+        "detail": "CREATE ROLE aroundtheworld LOGIN PASSWORD <generated>"
+      },
+      {
+        "kind": "create-database",
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "ConnectionStrings__DefaultConnection",
+        "type": "postgres-db",
+        "database": "aroundtheworld",
+        "role": "aroundtheworld",
+        "detail": "CREATE DATABASE aroundtheworld OWNER aroundtheworld"
+      },
+      {
+        "kind": "patch-secret-key",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "ConnectionStrings__DefaultConnection",
+        "type": "postgres-db",
+        "source": "the Npgsql connection string for aroundtheworld as aroundtheworld",
+        "preserves": [
+          "Jwt__Secret"
+        ],
+        "detail": "patch balenthiran/around-the-world-secrets#ConnectionStrings__DefaultConnection, preserving 1 existing key(s)"
+      },
+      {
+        "kind": "patch-secret-key",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "Admin__Key",
+        "type": "random",
+        "source": "generate 16 random bytes, hex-encoded (openssl rand -hex 16)",
+        "preserves": [
+          "Jwt__Secret"
+        ],
+        "detail": "patch balenthiran/around-the-world-secrets#Admin__Key, preserving 1 existing key(s)"
+      },
+      {
+        "kind": "patch-secret-key",
+        "namespace": "kit",
+        "secretName": "kit-secrets",
+        "key": "S",
+        "type": "random",
+        "source": "generate 32 random bytes, hex-encoded (openssl rand -hex 32)",
+        "preserves": [
+          "Other"
+        ],
+        "detail": "patch kit/kit-secrets#S, preserving 1 existing key(s)"
+      }
+    ],
+    "blocked": [
+      {
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "PhotoStorage__AccessKeyId",
+        "type": "external",
+        "action": "supply-externally",
+        "reason": "nothing can generate this value; a human must put it in balenthiran/around-the-world-secrets#PhotoStorage__AccessKeyId. Left as it is, the pod fails with CreateContainerConfigError minutes after it starts"
+      },
+      {
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "PhotoStorage__SecretAccessKey",
+        "type": "external",
+        "action": "supply-externally",
+        "reason": "nothing can generate this value; a human must put it in balenthiran/around-the-world-secrets#PhotoStorage__SecretAccessKey. Left as it is, the pod fails with CreateContainerConfigError minutes after it starts"
+      }
+    ],
+    "unknown": [],
+    "drift": [],
+    "unmanaged": [
+      {
+        "app": "k",
+        "namespace": "kit",
+        "secretName": "kit-secrets",
+        "key": "Other",
+        "reason": "present in the cluster but declared nowhere — left untouched"
+      }
+    ],
+    "noop": [
+      {
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "Jwt__Secret",
+        "type": "random",
+        "reason": "already present — create-only leaves it alone"
+      }
+    ],
+    "summary": {
+      "steps": 5,
+      "createSecret": 0,
+      "patchKey": 3,
+      "createRole": 1,
+      "createDatabase": 1,
+      "blocked": 2,
+      "unknown": 0,
+      "drift": 0,
+      "unmanaged": 1,
+      "noop": 1
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "declarations": [
+    {
+      "app": "u",
+      "namespace": "balenthiran",
+      "secretName": "u-secrets",
+      "keys": [
+        {
+          "key": "K",
+          "type": "telepathy"
+        }
+      ]
+    }
+  ],
+  "observation": {
+    "namespaces": [
+      "balenthiran"
+    ],
+    "secrets": {},
+    "postgres": {
+      "roles": [],
+      "databases": []
+    }
+  },
+  "plan": {
+    "steps": [],
+    "blocked": [],
+    "unknown": [
+      {
+        "app": "u",
+        "namespace": "balenthiran",
+        "secretName": "u-secrets",
+        "key": "K",
+        "type": "telepathy",
+        "reason": "no planner branch for type \"telepathy\" — the schema knows a type this planner does not"
+      }
+    ],
+    "drift": [],
+    "unmanaged": [],
+    "noop": [],
+    "summary": {
+      "steps": 0,
+      "createSecret": 0,
+      "patchKey": 0,
+      "createRole": 0,
+      "createDatabase": 0,
+      "blocked": 0,
+      "unknown": 1,
+      "drift": 0,
+      "unmanaged": 0,
+      "noop": 0
+    }
+  }
+}

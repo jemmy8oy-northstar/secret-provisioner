@@ -1,0 +1,120 @@
+{
+  "steps": [
+    {
+      "kind": "create-role",
+      "app": "balenthiran",
+      "namespace": "balenthiran",
+      "secretName": "balenthiran-secrets",
+      "key": "DATABASE_URL",
+      "type": "postgres-db",
+      "role": "balenthiran",
+      "detail": "CREATE ROLE balenthiran LOGIN PASSWORD <generated>"
+    },
+    {
+      "kind": "create-database",
+      "app": "balenthiran",
+      "namespace": "balenthiran",
+      "secretName": "balenthiran-secrets",
+      "key": "DATABASE_URL",
+      "type": "postgres-db",
+      "database": "balenthiran",
+      "role": "balenthiran",
+      "detail": "CREATE DATABASE balenthiran OWNER balenthiran"
+    },
+    {
+      "kind": "patch-secret-key",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "key": "Jwt__Secret",
+      "type": "random",
+      "source": "generate 32 random bytes, hex-encoded (openssl rand -hex 32)",
+      "preserves": [
+        "Admin__Key",
+        "ConnectionStrings__DefaultConnection",
+        "LegacyMigrationToken",
+        "PhotoStorage__AccessKeyId",
+        "PhotoStorage__SecretAccessKey"
+      ],
+      "detail": "patch balenthiran/around-the-world-secrets#Jwt__Secret, preserving 5 existing key(s)"
+    },
+    {
+      "kind": "create-secret",
+      "namespace": "balenthiran",
+      "secretName": "balenthiran-secrets",
+      "keys": [
+        {
+          "key": "DATABASE_URL",
+          "type": "postgres-db",
+          "source": "the Npgsql connection string for balenthiran as balenthiran"
+        }
+      ],
+      "detail": "create Secret balenthiran/balenthiran-secrets with 1 key(s)"
+    }
+  ],
+  "blocked": [],
+  "unknown": [],
+  "drift": [],
+  "unmanaged": [
+    {
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "key": "LegacyMigrationToken",
+      "reason": "present in the cluster but declared nowhere — left untouched"
+    }
+  ],
+  "noop": [
+    {
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "key": "ConnectionStrings__DefaultConnection",
+      "type": "postgres-db",
+      "reason": "already present — create-only leaves it alone"
+    },
+    {
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "key": "Admin__Key",
+      "type": "random",
+      "reason": "already present — create-only leaves it alone"
+    },
+    {
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "key": "PhotoStorage__AccessKeyId",
+      "type": "external",
+      "reason": "already present — create-only leaves it alone"
+    },
+    {
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "key": "PhotoStorage__SecretAccessKey",
+      "type": "external",
+      "reason": "already present — create-only leaves it alone"
+    },
+    {
+      "app": "macro-metrics",
+      "namespace": "balenthiran",
+      "secretName": "macro-metrics-secrets",
+      "key": "FRED_API_KEY",
+      "type": "external",
+      "reason": "already present — create-only leaves it alone"
+    }
+  ],
+  "summary": {
+    "steps": 4,
+    "createSecret": 1,
+    "patchKey": 1,
+    "createRole": 1,
+    "createDatabase": 1,
+    "blocked": 0,
+    "unknown": 0,
+    "drift": 0,
+    "unmanaged": 1,
+    "noop": 5
+  }
+}

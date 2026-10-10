@@ -1,0 +1,183 @@
+{
+  "command": "dotnet test backend/Balenthiran.SecretProvisioner.slnx",
+  "mutants": [
+    {
+      "id": "get-reconcile-runs-it",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "        new(\"POST\", \"/reconcile\", (h, ct) => h.ReconcileAsync(ct), Exclusive: true, RejectsBody: true),\n",
+      "to": "        new(\"POST\", \"/reconcile\", (h, ct) => h.ReconcileAsync(ct), Exclusive: true, RejectsBody: true),\n        new(\"GET\", \"/reconcile\", (h, ct) => h.ReconcileAsync(ct), Exclusive: true, RejectsBody: true),\n",
+      "kills": "GET_reconcile_is_405_and_does_NOT_run_the_handler; the surface test. A GET provisions the estate, so a link, a crawler or a prefetch can trigger a write"
+    },
+    {
+      "id": "wrong-method-is-a-404",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "            if (allowed.Count > 0)",
+      "to": "            if (false)",
+      "kills": "GET_reconcile_is_405...; A_405_and_a_404_are_different_answers. GET /reconcile and a typo produce the same answer"
+    },
+    {
+      "id": "body-is-allowed",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "        if (route.RejectsBody && CarriesBody(request.ContentLength, request.TransferEncoding))",
+      "to": "        if (false)",
+      "kills": "A_body_on_reconcile_is_refused_and_the_handler_does_not_run. The endpoint accepts a payload, so reachability is the only control on an unauthenticated write"
+    },
+    {
+      "id": "body-refused-on-every-route",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "        if (route.RejectsBody && CarriesBody(",
+      "to": "        if (CarriesBody(",
+      "kills": "A_body_is_only_refused_on_reconcile_the_read_routes_are_not_asked"
+    },
+    {
+      "id": "chunked-body-slips-through",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "        return transferEncoding?.Contains(\"chunked\", StringComparison.OrdinalIgnoreCase) ?? false;",
+      "to": "        return false;",
+      "kills": "A_CHUNKED_body_is_refused_too; the chunked case through the router. The one body that most needs refusing is the one that gets through"
+    },
+    {
+      "id": "chunked-is-case-sensitive",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "Contains(\"chunked\", StringComparison.OrdinalIgnoreCase)",
+      "to": "Contains(\"chunked\", StringComparison.Ordinal)",
+      "kills": "A_CHUNKED_body_is_refused_too (Chunked)"
+    },
+    {
+      "id": "empty-body-is-a-body",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "            && length > 0)",
+      "to": "            && length >= 0)",
+      "kills": "Content_length_zero_is_NOT_a_body. curl -X POST sends content-length: 0, so the endpoint is unusable by the one command anyone would reach for"
+    },
+    {
+      "id": "content-length-not-trimmed-or-parsed",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "NumberStyles.Float, CultureInfo.InvariantCulture",
+      "to": "NumberStyles.None, CultureInfo.InvariantCulture",
+      "kills": "Content_length_is_read_as_a_number_the_way_the_JS_did (\" 2 \")"
+    },
+    {
+      "id": "negative-length-is-a-body",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "            && double.IsFinite(length)\n            && length > 0)",
+      "to": "            && double.IsFinite(length)\n            && length != 0)",
+      "kills": "Content_length_is_read_as_a_number_the_way_the_JS_did (-1)"
+    },
+    {
+      "id": "infinite-length-is-a-body",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "            && double.IsFinite(length)\n",
+      "to": "",
+      "kills": "Content_length_is_read_as_a_number_the_way_the_JS_did (Infinity)"
+    },
+    {
+      "id": "no-single-flight",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "            if (Interlocked.CompareExchange(ref _reconcileState, Running, Idle) != Idle)",
+      "to": "            if (false)",
+      "kills": "A_second_reconcile_while_one_is_running_is_409; the 32-caller race. Two reconciles race to create the same objects and the loser's report fills with 409s and 42710s"
+    },
+    {
+      "id": "check-then-set-with-a-window",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "            if (Interlocked.CompareExchange(ref _reconcileState, Running, Idle) != Idle)",
+      "to": "            var seen = _reconcileState;\n            Thread.Yield();\n            _reconcileState = Running;\n            if (seen != Idle)",
+      "kills": "Thirty_two_reconciles_started_together_yield_exactly_one_200. The same non-atomic pair with the window held open, to prove the race test can see it at all"
+    },
+    {
+      "id": "the-lock-leaks-on-failure",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "                Interlocked.Exchange(ref _reconcileState, Idle);",
+      "to": "                Interlocked.Exchange(ref _reconcileState, _reconcileState);",
+      "kills": "The_lock_is_released_after_a_run_including_a_failed_one; the cancelled run. One failed reconcile locks the endpoint until the pod restarts"
+    },
+    {
+      "id": "state-is-per-request",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "            if (Interlocked.CompareExchange(ref _reconcileState, Running, Idle) != Idle)",
+      "to": "            var perRequest = Idle;\n            if (Interlocked.CompareExchange(ref perRequest, Running, Idle) != Idle)",
+      "kills": "A_second_reconcile_while_one_is_running_is_409. The guard exists, passes its own unit test, and is never once true across two requests"
+    },
+    {
+      "id": "every-route-takes-the-lock",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "        if (route.Exclusive)\n        {\n            // Check-and-set",
+      "to": "        if (true)\n        {\n            // Check-and-set",
+      "kills": "Reads_are_never_locked_status_and_plan_work_while_a_reconcile_runs"
+    },
+    {
+      "id": "the-error-message-is-echoed",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "Body = new HandlerFailedBody { Error = $\"{route.Method} {route.Path} failed\" },",
+      "to": "Body = new HandlerFailedBody { Error = $\"{route.Method} {route.Path} failed: {error.Message}\" },",
+      "kills": "A_handlers_error_message_never_reaches_the_response_body. A Postgres error quotes the failing statement back, and that statement contains a password"
+    },
+    {
+      "id": "the-error-is-swallowed",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "                Thrown = error,\n",
+      "to": "",
+      "kills": "The_error_is_still_handed_to_the_caller_to_log. Refusing to echo turns into losing it"
+    },
+    {
+      "id": "the-reply-serialises-its-exception",
+      "file": "backend/Balenthiran.SecretProvisioner.DataModels/Models/RouteReply.cs",
+      "from": "    [JsonIgnore]\n",
+      "to": "",
+      "kills": "A_reply_never_serialises_its_exception"
+    },
+    {
+      "id": "prefix-matching",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "Routes.Where(r => r.Path == path)",
+      "to": "Routes.Where(r => path.StartsWith(r.Path, StringComparison.Ordinal))",
+      "kills": "The_path_is_matched_EXACTLY. /reconcile/ and /reconcileX reach the write endpoint"
+    },
+    {
+      "id": "the-query-string-reaches-the-router",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "(url ?? string.Empty).Split('#')[0].Split('?')[0]",
+      "to": "(url ?? string.Empty).Split('#')[0]",
+      "kills": "A_query_string_is_discarded...; GET_reconcile_with_a_query_is_still_405"
+    },
+    {
+      "id": "the-fragment-is-kept",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "(url ?? string.Empty).Split('#')[0].Split('?')[0]",
+      "to": "(url ?? string.Empty).Split('?')[0]",
+      "kills": "A_fragment_is_discarded_even_when_it_precedes_a_question_mark"
+    },
+    {
+      "id": "the-405-recomputes-the-path",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "        var (route, _, allowed) = Match(request.Method, request.Url);",
+      "to": "        var (route, _, _) = Match(request.Method, request.Url);\n        var allowed = Routes.Where(r => r.Path == request.Url).Select(r => r.Method).ToList();",
+      "kills": "GET_reconcile_with_a_query_is_still_405. A real route with a query string answers 404 instead of 405"
+    },
+    {
+      "id": "method-compared-case-insensitively",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "onPath.FirstOrDefault(r => r.Method == method)",
+      "to": "onPath.FirstOrDefault(r => string.Equals(r.Method, method, StringComparison.OrdinalIgnoreCase))",
+      "kills": "The_method_is_compared_exactly"
+    },
+    {
+      "id": "allow-header-dropped",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "                    Allow = string.Join(\", \", allowed),\n",
+      "to": "",
+      "kills": "GET_reconcile_is_405_and_does_NOT_run_the_handler (Allow)"
+    }
+  ],
+  "unkillable": [
+    {
+      "id": "check-then-set-not-atomic",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Router.cs",
+      "from": "            if (Interlocked.CompareExchange(ref _reconcileState, Running, Idle) != Idle)",
+      "to": "            var seen = _reconcileState;\n            _reconcileState = Running;\n            if (seen != Idle)",
+      "kills": "Thirty_two_reconciles_started_together_yield_exactly_one_200. The Node check-then-set ported literally: safe on one thread, a race on Kestrel's pool",
+      "why_not_run": "Survives: with no await between the read and the write the race window is a few instructions, which 32 concurrent callers do not reliably hit. A test strong enough to catch it would be flaky. check-then-set-with-a-window is the same defect with the window held open, and IS killed, which proves the race test can see the race."
+    }
+  ]
+}

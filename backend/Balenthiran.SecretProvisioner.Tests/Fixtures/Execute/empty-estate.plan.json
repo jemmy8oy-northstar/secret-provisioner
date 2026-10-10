@@ -1,0 +1,127 @@
+{
+  "steps": [
+    {
+      "kind": "create-role",
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "key": "ConnectionStrings__DefaultConnection",
+      "type": "postgres-db",
+      "role": "aroundtheworld",
+      "detail": "CREATE ROLE aroundtheworld LOGIN PASSWORD <generated>"
+    },
+    {
+      "kind": "create-database",
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "key": "ConnectionStrings__DefaultConnection",
+      "type": "postgres-db",
+      "database": "aroundtheworld",
+      "role": "aroundtheworld",
+      "detail": "CREATE DATABASE aroundtheworld OWNER aroundtheworld"
+    },
+    {
+      "kind": "create-role",
+      "app": "balenthiran",
+      "namespace": "balenthiran",
+      "secretName": "balenthiran-secrets",
+      "key": "DATABASE_URL",
+      "type": "postgres-db",
+      "role": "balenthiran",
+      "detail": "CREATE ROLE balenthiran LOGIN PASSWORD <generated>"
+    },
+    {
+      "kind": "create-database",
+      "app": "balenthiran",
+      "namespace": "balenthiran",
+      "secretName": "balenthiran-secrets",
+      "key": "DATABASE_URL",
+      "type": "postgres-db",
+      "database": "balenthiran",
+      "role": "balenthiran",
+      "detail": "CREATE DATABASE balenthiran OWNER balenthiran"
+    },
+    {
+      "kind": "create-secret",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "keys": [
+        {
+          "key": "ConnectionStrings__DefaultConnection",
+          "type": "postgres-db",
+          "source": "the Npgsql connection string for aroundtheworld as aroundtheworld"
+        },
+        {
+          "key": "Jwt__Secret",
+          "type": "random",
+          "source": "generate 32 random bytes, hex-encoded (openssl rand -hex 32)"
+        },
+        {
+          "key": "Admin__Key",
+          "type": "random",
+          "source": "generate 16 random bytes, hex-encoded (openssl rand -hex 16)"
+        }
+      ],
+      "detail": "create Secret balenthiran/around-the-world-secrets with 3 key(s)"
+    },
+    {
+      "kind": "create-secret",
+      "namespace": "balenthiran",
+      "secretName": "balenthiran-secrets",
+      "keys": [
+        {
+          "key": "DATABASE_URL",
+          "type": "postgres-db",
+          "source": "the Npgsql connection string for balenthiran as balenthiran"
+        }
+      ],
+      "detail": "create Secret balenthiran/balenthiran-secrets with 1 key(s)"
+    }
+  ],
+  "blocked": [
+    {
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "key": "PhotoStorage__AccessKeyId",
+      "type": "external",
+      "action": "supply-externally",
+      "reason": "nothing can generate this value; a human must put it in balenthiran/around-the-world-secrets#PhotoStorage__AccessKeyId. Left as it is, the pod fails with CreateContainerConfigError minutes after it starts"
+    },
+    {
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "key": "PhotoStorage__SecretAccessKey",
+      "type": "external",
+      "action": "supply-externally",
+      "reason": "nothing can generate this value; a human must put it in balenthiran/around-the-world-secrets#PhotoStorage__SecretAccessKey. Left as it is, the pod fails with CreateContainerConfigError minutes after it starts"
+    },
+    {
+      "app": "macro-metrics",
+      "namespace": "balenthiran",
+      "secretName": "macro-metrics-secrets",
+      "key": "FRED_API_KEY",
+      "type": "external",
+      "action": "supply-externally",
+      "reason": "nothing can generate this value; a human must put it in balenthiran/macro-metrics-secrets#FRED_API_KEY. Left as it is, the pod fails with CreateContainerConfigError minutes after it starts"
+    }
+  ],
+  "unknown": [],
+  "drift": [],
+  "unmanaged": [],
+  "noop": [],
+  "summary": {
+    "steps": 6,
+    "createSecret": 2,
+    "patchKey": 0,
+    "createRole": 2,
+    "createDatabase": 2,
+    "blocked": 3,
+    "unknown": 0,
+    "drift": 0,
+    "unmanaged": 0,
+    "noop": 0
+  }
+}

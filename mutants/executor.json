@@ -1,0 +1,237 @@
+{
+  "command": "dotnet test backend/Balenthiran.SecretProvisioner.slnx",
+  "mutants": [
+    {
+      "id": "no-redaction-of-error-messages",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "Error = RedactValues(error.Message, run.Generated)",
+      "to": "Error = error.Message",
+      "kills": "A_password_in_an_error_message_is_redacted_before_it_is_recorded"
+    },
+    {
+      "id": "password-never-registered-as-generated",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "                run.Generated.Add(password);\n",
+      "to": "",
+      "kills": "The_password_is_registered_as_generated_before_the_role_is_created; No_generated_value_reaches_the_report_in_any_shape"
+    },
+    {
+      "id": "redaction-shortest-first",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "values.OrderByDescending(v => v.Length)",
+      "to": "values.OrderBy(v => v.Length)",
+      "kills": "RedactValues_replaces_the_longest_value_first"
+    },
+    {
+      "id": "byte-count-defaulted-instead-of-declared",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "GenerateHex(entry.Bytes ?? DefaultRandomBytes)",
+      "to": "GenerateHex(DefaultRandomBytes)",
+      "kills": "The_byte_count_comes_from_the_declaration_not_from_the_steps_prose"
+    },
+    {
+      "id": "role-and-database-confused",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "!run.Passwords.TryGetValue(entry.Role, out var password)",
+      "to": "!run.Passwords.TryGetValue(entry.Database ?? \"\", out var password)",
+      "kills": "The_role_goes_in_Username_and_the_database_in_Database_they_are_not_the_same_field"
+    },
+    {
+      "id": "username-taken-from-database",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "entry.Database, entry.Role, password);",
+      "to": "entry.Database, entry.Database, password);",
+      "kills": "The_role_goes_in_Username_and_the_database_in_Database_they_are_not_the_same_field"
+    },
+    {
+      "id": "failure-does-not-stop-the-run",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "if (failed is not null)\n            {\n                skipped.Add",
+      "to": "if (false)\n            {\n                skipped.Add",
+      "kills": "The_first_failure_stops_the_run_and_the_rest_is_reported_as_not_attempted"
+    },
+    {
+      "id": "connection-string-separator",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "string.Join(';', parts",
+      "to": "string.Join('&', parts",
+      "kills": "The_connection_string_is_Npgsql_keyword_syntax_which_is_what_the_apps_consume"
+    },
+    {
+      "id": "unsafe-characters-allowed-through",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "if (value.IndexOfAny(UnsafeInConnectionString) >= 0)",
+      "to": "if (false)",
+      "kills": "The_connection_string_refuses_a_component_it_would_have_to_quote"
+    },
+    {
+      "id": "missing-component-not-refused",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "if (string.IsNullOrEmpty(value))\n            {\n                throw new ExecutionRefusedException($\"connection string: {keyword} is required\");",
+      "to": "if (false)\n            {\n                throw new ExecutionRefusedException($\"connection string: {keyword} is required\");",
+      "kills": "The_connection_string_refuses_a_missing_component_rather_than_writing_nothing"
+    },
+    {
+      "id": "type-disagreement-tolerated",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "if (entry.Type != type)",
+      "to": "if (false)",
+      "kills": "Refuses_a_plan_whose_type_disagrees_with_the_declaration"
+    },
+    {
+      "id": "undeclared-key-invented",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "if (!run.Index.TryGetValue(at, out var entry))",
+      "to": "if (false)",
+      "kills": "Refuses_a_plan_that_writes_a_key_no_declaration_claims"
+    },
+    {
+      "id": "missing-password-not-refused",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "if (entry.Role is null || !run.Passwords.TryGetValue(entry.Role, out var password))",
+      "to": "var password = run.Passwords.GetValueOrDefault(entry.Role ?? \"\") ?? \"x\";\n            if (false)",
+      "kills": "Refuses_to_write_a_connection_string_for_a_role_this_run_did_not_create"
+    },
+    {
+      "id": "unknown-step-kind-silently-succeeds",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "throw new ExecutionRefusedException($\"no executor branch",
+      "to": "if (step.Kind.Length >= 0) { return; }\n                throw new ExecutionRefusedException($\"no executor branch",
+      "kills": "Refuses_a_step_kind_it_does_not_know"
+    },
+    {
+      "id": "external-value-generated-anyway",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "throw new ExecutionRefusedException($\"refusing to execute: {step.Namespace}/{step.SecretName}#{key} is type",
+      "to": "if (key.Length >= 0) { return GenerateHex(DefaultRandomBytes); }\n        throw new ExecutionRefusedException($\"refusing to execute: {step.Namespace}/{step.SecretName}#{key} is type",
+      "kills": "Refuses_to_generate_an_external_value_even_if_a_plan_asks_for_one"
+    },
+    {
+      "id": "host-guessed-instead-of-required",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "if (string.IsNullOrEmpty(postgres.Host))",
+      "to": "if (false)",
+      "kills": "Refuses_to_run_without_a_Postgres_host_rather_than_guessing_one"
+    },
+    {
+      "id": "report-carries-something-other-than-the-key-names",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "Select(k => k.Key).ToList() }",
+      "to": "Select(k => k.Source).ToList() }",
+      "kills": "A_create_secret_step_reports_key_NAMES_and_the_report_has_no_data_field_at_all"
+    },
+    {
+      "id": "patch-aimed-at-the-wrong-secret",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "PatchSecretKeyAsync(step.Namespace, step.SecretName, key,",
+      "to": "PatchSecretKeyAsync(step.Namespace, key, key,",
+      "kills": "A_partial_estate_patches_one_key_and_never_rewrites_the_Secret"
+    },
+    {
+      "id": "type-not-propagated-into-materialise",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "Materialise(step, k.Key, k.Type, run)",
+      "to": "Materialise(step, k.Key, \"random\", run)",
+      "kills": "The_password_put_in_the_connection_string_is_the_one_the_role_was_created_with"
+    },
+    {
+      "id": "blocked-entries-dropped-from-the-report",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "Blocked = plan.Blocked,",
+      "to": "Blocked = [],",
+      "kills": "The_planners_refusals_are_carried_through_verbatim_and_do_not_stop_anything"
+    },
+    {
+      "id": "generateHex-accepts-zero-bytes",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "if (bytes < 1)",
+      "to": "if (false)",
+      "kills": "GenerateHex_refuses_a_byte_count_that_is_not_a_positive_integer"
+    },
+    {
+      "id": "composer-accepts-any-port",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "if (port < 1 || port > 65535)\n        {\n            throw new ExecutionRefusedException(",
+      "to": "if (false)\n        {\n            throw new ExecutionRefusedException(",
+      "kills": "The_connection_string_refuses_a_port_that_is_not_a_port"
+    },
+    {
+      "id": "execute-accepts-a-bad-port",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "if (port < 1 || port > 65535)\n        {\n            throw new InvalidPostgresEndpointException(",
+      "to": "if (false)\n        {\n            throw new InvalidPostgresEndpointException(",
+      "kills": "Execute_refuses_a_bad_port_rather_than_creating_roles_and_then_writing_it"
+    },
+    {
+      "id": "noop-dropped-from-the-report",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "Noop = plan.Noop,",
+      "to": "Noop = [],",
+      "kills": "Noop_is_carried_through_too_a_settled_estate_is_mostly_noop"
+    },
+    {
+      "id": "noop-missing-from-the-summary",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "Noop = plan.Noop.Count,",
+      "to": "Noop = 0,",
+      "kills": "Noop_is_carried_through_too_a_settled_estate_is_mostly_noop"
+    },
+    {
+      "id": "duplicate-create-role-allowed",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "if (run.Passwords.ContainsKey(role))",
+      "to": "if (false)",
+      "kills": "Refuses_a_plan_that_creates_the_same_role_twice"
+    },
+    {
+      "id": "shape-redaction-removed",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "return SecretShaped.Replace(output, \"<redacted>\");",
+      "to": "return output;",
+      "kills": "RedactValues_also_catches_a_value_the_driver_truncated"
+    },
+    {
+      "id": "shape-redaction-too-broad",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "new(\"[0-9a-f]{32,}\"",
+      "to": "new(\"[0-9a-f]{4,}\"",
+      "kills": "RedactValues_leaves_ordinary_prose_alone"
+    },
+    {
+      "id": "assertNoGeneratedValues-never-throws",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "if (value.Length > 0 && serialised.Contains(value, StringComparison.Ordinal))",
+      "to": "if (false)",
+      "kills": "AssertNoGeneratedValues_throws_on_a_report_that_leaks_called_directly"
+    },
+    {
+      "id": "values-are-base64-not-hex",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "RandomNumberGenerator.GetHexString(bytes * 2, lowercase: true)",
+      "to": "Convert.ToBase64String(RandomNumberGenerator.GetBytes(bytes))",
+      "kills": "GenerateHex_produces_only_hex_of_the_length_asked_for"
+    },
+    {
+      "id": "values-are-uppercase-hex",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "lowercase: true",
+      "to": "lowercase: false",
+      "kills": "GenerateHex_produces_only_hex_of_the_length_asked_for"
+    },
+    {
+      "id": "default-port-wrong",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "postgres.Port ?? DefaultPostgresPort",
+      "to": "postgres.Port ?? 5433",
+      "kills": "The_password_put_in_the_connection_string_is_the_one_the_role_was_created_with"
+    },
+    {
+      "id": "explicit-port-ignored",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
+      "from": "postgres.Host, port);",
+      "to": "postgres.Host, DefaultPostgresPort);",
+      "kills": "An_explicit_port_is_the_one_composed"
+    }
+  ],
+  "note": "Run with: mutate-spec mutants/executor.json --keep-going. A mutant whose anchor no longer matches is reported NOT-APPLIED and counts against the score."
+}

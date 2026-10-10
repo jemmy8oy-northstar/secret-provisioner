@@ -1,0 +1,92 @@
+{
+  "declarations": [
+    {
+      "app": "r",
+      "namespace": "balenthiran",
+      "secretName": "r-secrets",
+      "keys": [
+        {
+          "key": "DB",
+          "type": "postgres-db",
+          "database": "the_db",
+          "role": "the_role"
+        },
+        {
+          "key": "K",
+          "type": "random",
+          "bytes": 20
+        }
+      ]
+    }
+  ],
+  "observation": {
+    "namespaces": [
+      "balenthiran"
+    ],
+    "secrets": {},
+    "postgres": {
+      "roles": [],
+      "databases": []
+    }
+  },
+  "plan": {
+    "steps": [
+      {
+        "kind": "create-role",
+        "app": "r",
+        "namespace": "balenthiran",
+        "secretName": "r-secrets",
+        "key": "DB",
+        "type": "postgres-db",
+        "role": "the_role",
+        "detail": "CREATE ROLE the_role LOGIN PASSWORD <generated>"
+      },
+      {
+        "kind": "create-database",
+        "app": "r",
+        "namespace": "balenthiran",
+        "secretName": "r-secrets",
+        "key": "DB",
+        "type": "postgres-db",
+        "database": "the_db",
+        "role": "the_role",
+        "detail": "CREATE DATABASE the_db OWNER the_role"
+      },
+      {
+        "kind": "create-secret",
+        "namespace": "balenthiran",
+        "secretName": "r-secrets",
+        "keys": [
+          {
+            "key": "DB",
+            "type": "postgres-db",
+            "source": "the Npgsql connection string for the_db as the_role"
+          },
+          {
+            "key": "K",
+            "type": "random",
+            "source": "generate 20 random bytes, hex-encoded (openssl rand -hex 20)"
+          }
+        ],
+        "detail": "create Secret balenthiran/r-secrets with 2 key(s)"
+      }
+    ],
+    "blocked": [],
+    "unknown": [],
+    "drift": [],
+    "unmanaged": [],
+    "noop": [],
+    "summary": {
+      "steps": 3,
+      "createSecret": 1,
+      "patchKey": 0,
+      "createRole": 1,
+      "createDatabase": 1,
+      "blocked": 0,
+      "unknown": 0,
+      "drift": 0,
+      "unmanaged": 0,
+      "noop": 0
+    }
+  }
+}
