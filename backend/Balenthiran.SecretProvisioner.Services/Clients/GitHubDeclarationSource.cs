@@ -5,7 +5,7 @@ using Balenthiran.SecretProvisioner.Abstractions.Exceptions;
 using Balenthiran.SecretProvisioner.Abstractions.Services;
 using Balenthiran.SecretProvisioner.DataModels.Models;
 
-namespace Balenthiran.SecretProvisioner.Database;
+namespace Balenthiran.SecretProvisioner.Services.Clients;
 
 /// <summary>
 /// Port of the HTTP half of <c>src/declarations.js</c>: reads <c>oke-fleet/secrets/*.json</c> over

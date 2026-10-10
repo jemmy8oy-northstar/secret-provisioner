@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using Balenthiran.SecretProvisioner.Abstractions.Exceptions;
-using Balenthiran.SecretProvisioner.Database;
+using Balenthiran.SecretProvisioner.Services.Clients;
 using Balenthiran.SecretProvisioner.DataModels.Models;
 using Balenthiran.SecretProvisioner.Services;
 

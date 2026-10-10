@@ -1,5 +1,5 @@
 using Balenthiran.SecretProvisioner.Abstractions.Exceptions;
-using Balenthiran.SecretProvisioner.Database;
+using Balenthiran.SecretProvisioner.Services.Clients;
 
 namespace Balenthiran.SecretProvisioner.Tests;
 

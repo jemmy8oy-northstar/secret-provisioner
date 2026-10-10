@@ -7,7 +7,7 @@ using Balenthiran.SecretProvisioner.Abstractions.Exceptions;
 using Balenthiran.SecretProvisioner.Abstractions.Services;
 using Balenthiran.SecretProvisioner.DataModels.Models;
 
-namespace Balenthiran.SecretProvisioner.Database;
+namespace Balenthiran.SecretProvisioner.Services.Clients;
 
 /// <summary>
 /// The Kubernetes edge. Port of <c>src/kube.js</c>: the only class that opens a socket to a cluster.

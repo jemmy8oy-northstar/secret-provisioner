@@ -1,6 +1,6 @@
 using Balenthiran.SecretProvisioner.Abstractions.DataModels;
 using Balenthiran.SecretProvisioner.Abstractions.Services;
-using Balenthiran.SecretProvisioner.Database;
+using Balenthiran.SecretProvisioner.Services.Clients;
 using Balenthiran.SecretProvisioner.DataModels.Models;
 using Balenthiran.SecretProvisioner.Services;
 using Microsoft.Extensions.DependencyInjection.Extensions;

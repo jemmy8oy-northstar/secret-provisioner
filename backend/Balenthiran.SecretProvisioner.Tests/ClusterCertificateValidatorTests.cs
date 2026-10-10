@@ -2,7 +2,7 @@ using System.Net.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Balenthiran.SecretProvisioner.Abstractions.Exceptions;
-using Balenthiran.SecretProvisioner.Database;
+using Balenthiran.SecretProvisioner.Services.Clients;
 
 namespace Balenthiran.SecretProvisioner.Tests;
 

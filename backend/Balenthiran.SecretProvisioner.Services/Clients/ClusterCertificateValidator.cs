@@ -2,7 +2,7 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using Balenthiran.SecretProvisioner.Abstractions.Exceptions;
 
-namespace Balenthiran.SecretProvisioner.Database;
+namespace Balenthiran.SecretProvisioner.Services.Clients;
 
 /// <summary>
 /// Decides whether the certificate an API server presented chains to the cluster CA — and to

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Balenthiran.SecretProvisioner.Abstractions.Exceptions;
 using Balenthiran.SecretProvisioner.Abstractions.Services;
-using Balenthiran.SecretProvisioner.Database;
+using Balenthiran.SecretProvisioner.Services.Clients;
 using Balenthiran.SecretProvisioner.Services;
 using Reply = Balenthiran.SecretProvisioner.Tests.FakeApiServer.Reply;
 
