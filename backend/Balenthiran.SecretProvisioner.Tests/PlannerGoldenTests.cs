@@ -8,7 +8,7 @@ namespace Balenthiran.SecretProvisioner.Tests;
 
 /// <summary>
 /// The C# planner against the JavaScript planner's OWN output. Every golden in
-/// <c>Fixtures/Plan</c> was written by <c>tools/plan-goldens.mjs</c> running
+/// <c>Fixtures/Plan</c> was written by <c>tools/plan-goldens.mjs</c> (deleted with the JavaScript; see git history) running
 /// <c>oke-fleet:scripts/plan-secrets.mjs</c> at 34c7d8c, so the expected side never went
 /// through this code — a comparison that canonicalised both sides through one serialiser would
 /// be blind to the serialiser.

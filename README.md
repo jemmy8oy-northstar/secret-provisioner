@@ -58,8 +58,8 @@ James chose C# on
 which matches his house stack (.NET backend, React frontend, optional Postgres).
 The code lives in `backend/` in web-template's layout: interfaces in
 `Abstractions`, models in `DataModels`, pure logic in `Services`, and the
-Kubernetes, Postgres and GitHub clients in `Database`. The JavaScript in `src/`
-is what it was ported from. It is deleted once the C# service runs.
+Kubernetes, Postgres and GitHub clients in `Database`. It was ported from
+JavaScript, which was deleted once the C# service ran (#9).
 
 ## What is built
 
@@ -75,14 +75,14 @@ is what it was ported from. It is deleted once the C# service runs.
   responses into that observation. Pure; the clients live at the edge.
 - ✅ **The contracts** for the Kubernetes, Postgres and declarations clients
   (`Abstractions/Services`).
-- ⬜ The executor, the three clients and the HTTP surface.
-- ⬜ `Dockerfile`, chart, build workflow.
+- ✅ The executor, the three clients and the HTTP surface.
+- ✅ `Dockerfile`, chart, build workflow.
 
 ### How the port is checked
 
-`tools/plan-goldens.mjs` runs the JavaScript planner from `oke-fleet` over 19
-scenarios. It writes each scenario's input together with the planner's real
-output to `backend/Balenthiran.SecretProvisioner.Tests/Fixtures/Plan/`. The C#
+`tools/plan-goldens.mjs` (now deleted; it is in git history) ran the JavaScript
+planner from `oke-fleet` over 19 scenarios. It wrote each scenario's input
+together with the planner's real output to `backend/Balenthiran.SecretProvisioner.Tests/Fixtures/Plan/`. The C#
 planner must produce the same plan for every one. The expected side never
 passes through C#, so a serialiser bug can't hide by appearing on both sides.
 
@@ -111,12 +111,8 @@ seam is pinned from both sides, and a test asserts each half.
 ## Running the tests
 
 ```sh
-dotnet test backend/Balenthiran.SecretProvisioner.slnx   # the C# service
-npm test                                                  # the JavaScript it was ported from
+dotnet test backend/Balenthiran.SecretProvisioner.slnx
 ```
-
-⚠️ Not `node --test src/` — naming a directory makes Node resolve it as a module
-and fail with `MODULE_NOT_FOUND`, which looks exactly like a broken suite.
 
 ## Branches
 
