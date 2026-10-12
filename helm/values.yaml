@@ -1,7 +1,5 @@
 fullnameOverride: "secret-provisioner"
-
 registryPrefix: "lhr.ocir.io/lr7uc6l49odc" # shared OCIR namespace
-
 # 🔑 THE NAMESPACES THIS POD MAY WRITE SECRETS IN, and the only ones. Each one gets
 # a Role and a RoleBinding (templates/rbac.yaml) — not a ClusterRole, because a
 # cluster-wide grant on Secrets would let this pod write into kube-system and argocd.
@@ -14,7 +12,6 @@ registryPrefix: "lhr.ocir.io/lr7uc6l49odc" # shared OCIR namespace
 # Every declaration in oke-fleet today names `balenthiran`.
 targetNamespaces:
   - balenthiran
-
 apps:
   # ONE entry, in the `.apps[]` shape Kit uses, so the image workflow can patch the
   # tag the same way: `(.apps[] | select(.name == "secret-provisioner") | .image.tag)`.
@@ -22,7 +19,7 @@ apps:
     image:
       repository: lhr.ocir.io/lr7uc6l49odc/secret-provisioner
       # Patched by the image workflow on every push to main (GitOps), once it exists.
-      tag: latest
+      tag: 0.1.1
       pullPolicy: Always
     containerPort: 8080
     # ONE replica. The router runs one reconcile at a time (a lock in the process);
