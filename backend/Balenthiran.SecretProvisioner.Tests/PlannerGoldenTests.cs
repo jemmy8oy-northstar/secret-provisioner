@@ -12,6 +12,12 @@ namespace Balenthiran.SecretProvisioner.Tests;
 /// <c>oke-fleet:scripts/plan-secrets.mjs</c> at 34c7d8c, so the expected side never went
 /// through this code — a comparison that canonicalised both sides through one serialiser would
 /// be blind to the serialiser.
+///
+/// Two goldens were edited by hand when create-only landed (secret-provisioner#9):
+/// <c>five-key-secret-missing-one</c> and <c>two-namespaces-mixed</c>, where the JS planner patched a
+/// key into an existing Secret. Those steps are now blocked <c>add-by-hand</c> entries, with any
+/// role and database that only existed to feed them. Every other golden is still the JS output,
+/// less <c>summary.patchKey</c>.
 /// </summary>
 public class PlannerGoldenTests
 {
@@ -42,7 +48,7 @@ public class PlannerGoldenTests
         }
 
         var kinds = plans.SelectMany(p => p["steps"]!.AsArray()).Select(s => (string)s!["kind"]!).ToHashSet();
-        Assert.Equal(["create-database", "create-role", "create-secret", "patch-secret-key"], kinds.Order());
+        Assert.Equal(["create-database", "create-role", "create-secret"], kinds.Order());
         Assert.True(plans.Count >= 15, $"only {plans.Count} plan goldens — did the fixtures copy to the output directory?");
     }
 
@@ -79,11 +85,14 @@ public class PlannerGoldenTests
     private static IEnumerable<string> Names(TheoryData<string> data) => ((IEnumerable<object[]>)data).Select(row => (string)row[0]);
 
     [Fact]
-    public void A_null_secret_key_list_is_refused_in_the_planners_words()
+    public void A_null_secret_key_list_means_exists_and_unread_and_is_never_a_create()
     {
+        // The JS planner refused this shape. Create-only made it the only shape production sends.
+        var declaration = new SecretDeclaration { App = "x", Namespace = "balenthiran", SecretName = "x", Keys = [new KeyDeclaration { Key = "K", Type = "random" }] };
         var observation = new Observation { Namespaces = ["balenthiran"], Secrets = new() { ["balenthiran/x"] = null } };
-        var refusal = Assert.Throws<InvalidObservationException>(() => new Planner().Plan([], observation));
-        Assert.Equal("observation: secrets[\"balenthiran/x\"] must be an array of key names", refusal.Message);
+        var plan = new Planner().Plan([declaration], observation);
+        Assert.Empty(plan.Steps);
+        Assert.Equal("K", Assert.Single(plan.Noop).Key);
     }
 
     private static TheoryData<string> Golden(bool refusals)

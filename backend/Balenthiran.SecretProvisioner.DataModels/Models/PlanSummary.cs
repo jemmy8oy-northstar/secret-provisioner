@@ -12,9 +12,6 @@ public sealed class PlanSummary : IPlanSummary
     [JsonPropertyOrder(2)]
     public required int CreateSecret { get; init; }
 
-    [JsonPropertyOrder(3)]
-    public required int PatchKey { get; init; }
-
     [JsonPropertyOrder(4)]
     public required int CreateRole { get; init; }
 

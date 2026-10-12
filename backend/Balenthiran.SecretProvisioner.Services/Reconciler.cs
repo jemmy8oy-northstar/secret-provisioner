@@ -57,13 +57,13 @@ public sealed class Reconciler : IReconciler
     {
         var set = await _source.LoadAsync(cancellationToken);
 
-        // Only the namespaces something is declared in. Listing every namespace would need a
-        // cluster-wide RBAC grant for no answer the planner uses.
-        var namespaces = set.Declarations.Select(d => d.Namespace).Distinct(StringComparer.Ordinal).ToList();
-        var listings = await _kubernetes.ObserveNamespacesAsync(namespaces, cancellationToken);
+        // Only the Secrets something declares. The pod can neither list nor read Secrets, so it asks
+        // about each one by name, and about nothing else.
+        var declared = set.Declarations.Select(d => (d.Namespace, d.SecretName)).Distinct().ToList();
+        var probes = await _kubernetes.ProbeSecretsAsync(declared, cancellationToken);
         var catalogue = await _postgres.ReadCatalogueAsync(cancellationToken);
 
-        return (set, _observer.Observe(listings, _observer.IndexPostgres(catalogue.RoleNames, catalogue.DatabaseNames)));
+        return (set, _observer.Observe(probes, _observer.IndexPostgres(catalogue.RoleNames, catalogue.DatabaseNames)));
     }
 
     private static DeclarationRef RefOf(IDeclarationSet set) =>

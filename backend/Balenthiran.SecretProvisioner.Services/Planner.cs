@@ -13,9 +13,14 @@ namespace Balenthiran.SecretProvisioner.Services;
 /// THE FACT THAT BREAKS THE OBVIOUS IMPLEMENTATION: <c>around-the-world-secrets</c> holds FIVE
 /// keys. Writing that Secret with the one key being provisioned DELETES the other four, and two
 /// of them are <c>Jwt__Secret</c> and <c>Admin__Key</c> — so the symptom is every logged-in
-/// guest signed out mid-party, not an error. A Secret that already exists is therefore only
-/// ever PATCHED, one key at a time, and <see cref="AssertNeverClobbers"/> is the invariant, not
-/// a comment about one.
+/// guest signed out mid-party, not an error. A Secret that already exists is therefore NEVER
+/// written: create-only (James, secret-provisioner#9) means the whole Secret is created once, and
+/// a key missing from an existing one is a human's job. <see cref="AssertNeverClobbers"/> is the
+/// invariant, not a comment about one.
+///
+/// In production every existing Secret arrives with a null key list — "exists, not read" — since
+/// the pod holds no verb that could read one. The key-list branches below are what the planner
+/// was ported with and are scored against the JS planner's output in the goldens.
 /// </remarks>
 public sealed class Planner : IPlanner
 {
@@ -48,7 +53,7 @@ public sealed class Planner : IPlanner
             // Did we actually look here? This is the difference between "create it" and "I have
             // no idea whether it exists".
             var enumerated = state.Namespaces.Contains(decl.Namespace);
-            var existing = state.Secrets.GetValueOrDefault(target);
+            var exists = state.Secrets.TryGetValue(target, out var existing);
 
             PlanEntry At(IKeyDeclaration entry, string reason, string? action = null) => new()
             {
@@ -66,6 +71,12 @@ public sealed class Planner : IPlanner
                 if (!enumerated)
                 {
                     unknown.Add(At(entry, $"namespace {decl.Namespace} was not enumerated — planning a create here could overwrite a Secret that already exists"));
+                    continue;
+                }
+
+                if (exists && existing is null)
+                {
+                    noop.Add(At(entry, "the Secret exists — create-only never reads or changes an existing Secret"));
                     continue;
                 }
 
@@ -93,6 +104,13 @@ public sealed class Planner : IPlanner
                             entry,
                             $"nothing can generate this value; a human must put it in {target}#{entry.Key}. Left as it is, the pod fails with CreateContainerConfigError minutes after it starts",
                             "supply-externally"));
+                        continue;
+
+                    case "random" or "postgres-db" when exists:
+                        blocked.Add(At(
+                            entry,
+                            $"{target} already exists without this key, and create-only never changes an existing Secret. Add it by hand",
+                            "add-by-hand"));
                         continue;
 
                     case "random":
@@ -175,42 +193,18 @@ public sealed class Planner : IPlanner
         // database it names exist.
         var steps = new List<PlanStep>(ddl);
 
+        // Every write is a create: a Secret that exists never reaches here (see the switch above).
         foreach (var (target, keys) in writes)
         {
-            var existing = state.Secrets.GetValueOrDefault(target);
             var slash = target.IndexOf('/'); // a Secret name may not contain a slash
-            var ns = target[..slash];
-            var secretName = target[(slash + 1)..];
-
-            if (existing is null)
+            steps.Add(new PlanStep
             {
-                steps.Add(new PlanStep
-                {
-                    Kind = "create-secret",
-                    Namespace = ns,
-                    SecretName = secretName,
-                    Keys = keys.Select(k => new StepKey { Key = k.Entry.Key, Type = k.Entry.Type, Source = k.Source }).ToList(),
-                    Detail = $"create Secret {target} with {keys.Count} key(s)",
-                });
-                continue;
-            }
-
-            // THE invariant. One step per key, never a write of the whole Secret, and each step
-            // names what it must not disturb.
-            foreach (var (entry, source) in keys)
-            {
-                steps.Add(new PlanStep
-                {
-                    Kind = "patch-secret-key",
-                    Namespace = ns,
-                    SecretName = secretName,
-                    Key = entry.Key,
-                    Type = entry.Type,
-                    Source = source,
-                    Preserves = existing.Order(StringComparer.Ordinal).ToList(),
-                    Detail = $"patch {target}#{entry.Key}, preserving {existing.Count} existing key(s)",
-                });
-            }
+                Kind = "create-secret",
+                Namespace = target[..slash],
+                SecretName = target[(slash + 1)..],
+                Keys = keys.Select(k => new StepKey { Key = k.Entry.Key, Type = k.Entry.Type, Source = k.Source }).ToList(),
+                Detail = $"create Secret {target} with {keys.Count} key(s)",
+            });
         }
 
         var plan = new Plan
@@ -225,7 +219,6 @@ public sealed class Planner : IPlanner
             {
                 Steps = steps.Count,
                 CreateSecret = steps.Count(s => s.Kind == "create-secret"),
-                PatchKey = steps.Count(s => s.Kind == "patch-secret-key"),
                 CreateRole = steps.Count(s => s.Kind == "create-role"),
                 CreateDatabase = steps.Count(s => s.Kind == "create-database"),
                 Blocked = blocked.Count,
@@ -253,9 +246,9 @@ public sealed class Planner : IPlanner
         foreach (var step in plan.Steps.Where(s => s.Kind == "create-secret"))
         {
             var target = $"{step.Namespace}/{step.SecretName}";
-            if (secrets.TryGetValue(target, out var keys))
+            if (secrets.ContainsKey(target))
             {
-                throw new InvalidOperationException($"planner bug: planned to create {target}, which already exists with {keys.Count} key(s) — that would delete every key not in this plan");
+                throw new InvalidOperationException($"planner bug: planned to create {target}, which already exists — that would delete every key not in this plan");
             }
         }
     }
@@ -295,15 +288,12 @@ public sealed class Planner : IPlanner
             throw new InvalidObservationException("observation must list the namespaces it enumerated — an unlisted namespace is \"I did not look\", not \"it is empty\"");
         }
 
-        var secrets = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        // A null key list is "exists, not read" — what the create-only probe reports for every
+        // Secret it finds. It is not "exists and empty", which would plan writes into it.
+        var secrets = new Dictionary<string, HashSet<string>?>(StringComparer.Ordinal);
         foreach (var (target, keys) in observed.Secrets ?? new Dictionary<string, IReadOnlyList<string>?>())
         {
-            if (keys is null)
-            {
-                throw new InvalidObservationException($"observation: secrets[{JsQuote(target)}] must be an array of key names");
-            }
-
-            secrets[target] = keys.ToHashSet(StringComparer.Ordinal);
+            secrets[target] = keys?.ToHashSet(StringComparer.Ordinal);
         }
 
         var pg = observed.Postgres;
@@ -320,6 +310,6 @@ public sealed class Planner : IPlanner
 
     private sealed record NormalisedObservation(
         HashSet<string> Namespaces,
-        Dictionary<string, HashSet<string>> Secrets,
+        Dictionary<string, HashSet<string>?> Secrets,
         (HashSet<string> Roles, HashSet<string> Databases)? Postgres);
 }

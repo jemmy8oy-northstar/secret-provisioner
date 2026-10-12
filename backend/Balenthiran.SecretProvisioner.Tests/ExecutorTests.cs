@@ -236,23 +236,33 @@ public class ExecutorTests
     }
 
     [Fact]
-    public async Task A_partial_estate_patches_one_key_and_never_rewrites_the_Secret()
+    public async Task A_partial_estate_never_writes_into_the_Secret_that_already_exists()
     {
-        // around-the-world-secrets already holds five keys. Writing it whole to add Jwt__Secret
-        // deletes the other four — two of which are Admin__Key and the live connection string —
-        // and the visible symptom is every guest signed out mid-party, not an error.
+        // around-the-world-secrets already holds five keys and is missing Jwt__Secret. Create-only
+        // (secret-provisioner#9) leaves it to a human: the plan carries it as blocked, and the run
+        // writes only the Secret that did not exist.
         var recorder = new Recorder();
         var report = await Execute(recorder, Plan("partial-estate.plan.json"));
 
         Assert.Null(report.Failed);
-        var patch = Assert.Single(recorder.Patches);
-        Assert.Equal("balenthiran", patch.Namespace);
-        Assert.Equal("around-the-world-secrets", patch.Name);
-        Assert.Equal("Jwt__Secret", patch.Key);
-        Assert.Matches("^[0-9a-f]{64}$", patch.Value);
-
-        // Nothing was created in that namespace's existing Secret.
         Assert.Equal(["balenthiran-secrets"], recorder.Secrets.Select(c => c.Name));
+        var blocked = Assert.Single(report.Blocked);
+        Assert.Equal(("around-the-world-secrets", "Jwt__Secret", "add-by-hand"), (blocked.SecretName, blocked.Key, blocked.Action));
+    }
+
+    [Fact]
+    public async Task A_patch_step_is_refused_not_executed()
+    {
+        // The executor has no verb to carry one out, and the cluster would refuse it anyway. A plan
+        // that still says "patch" came from an older planner, and must stop the run.
+        var plan = Plan("empty-estate.plan.json");
+        plan["steps"]!.AsArray().Insert(0, JsonNode.Parse("""{"kind":"patch-secret-key","namespace":"balenthiran","secretName":"around-the-world-secrets","key":"Jwt__Secret","type":"random","detail":"patch it"}"""));
+        var recorder = new Recorder();
+        var report = await Execute(recorder, plan);
+
+        Assert.Contains("no executor branch for step kind \"patch-secret-key\"", report.Failed!.Error);
+        Assert.Empty(recorder.Secrets);
+        Assert.Empty(recorder.Roles);
     }
 
     [Fact]
@@ -538,8 +548,6 @@ public class ExecutorTests
 
         public List<(string Namespace, string Name, IReadOnlyDictionary<string, string> Data)> Secrets { get; } = [];
 
-        public List<(string Namespace, string Name, string Key, string Value)> Patches { get; } = [];
-
         public List<string> Order { get; } = [];
 
         public Action? OnCreateDatabase { get; init; }
@@ -569,16 +577,8 @@ public class ExecutorTests
             return Task.CompletedTask;
         }
 
-        public Task PatchSecretKeyAsync(string ns, string name, string key, string value, CancellationToken cancellationToken = default)
-        {
-            Patches.Add((ns, name, key, value));
-            return Task.CompletedTask;
-        }
-
         public Task<IPostgresCatalogue> ReadCatalogueAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public Task<IKubeSecretList> ListSecretsAsync(string ns, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
-        public Task<IReadOnlyList<INamespaceListing>> ObserveNamespacesAsync(IEnumerable<string> namespaces, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ISecretProbe>> ProbeSecretsAsync(IEnumerable<(string Namespace, string Name)> secrets, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }

@@ -7,8 +7,6 @@ public interface IPlanSummary
 
     int CreateSecret { get; }
 
-    int PatchKey { get; }
-
     int CreateRole { get; }
 
     int CreateDatabase { get; }

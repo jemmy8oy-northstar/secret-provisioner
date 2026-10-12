@@ -5,12 +5,11 @@ using Balenthiran.SecretProvisioner.DataModels.Models;
 namespace Balenthiran.SecretProvisioner.Services;
 
 /// <summary>
-/// Port of <c>src/observe.js</c>. See <see cref="IObserver"/> for the contract.
+/// Ported from <c>src/observe.js</c>, then made create-only (secret-provisioner#9). See <see cref="IObserver"/> for the contract.
 /// </summary>
 /// <remarks>
-/// NO VALUE EVER LEAVES THIS CLASS. A Secret arrives with its values in <c>data</c>, right next
-/// to the key names we want; reading the keys and reading the values are one character apart.
-/// So the value is dropped here, at the earliest possible point.
+/// NO VALUE EVER REACHES THIS CLASS. Under create-only (secret-provisioner#9) the cluster never
+/// sends one: a probe answers "exists" or "does not", and nothing else about the Secret.
 /// </remarks>
 public sealed class Observer : IObserver
 {
@@ -18,38 +17,6 @@ public sealed class Observer : IObserver
     // as a database name already taken, and every `pg_` role looks like a collision with an app.
     private static readonly HashSet<string> SystemDatabases = new(StringComparer.Ordinal) { "postgres", "template0", "template1" };
     private const string SystemRolePrefix = "pg_";
-
-    public IReadOnlyList<string> KeysOf(IKubeSecret? secret)
-    {
-        // `data` and `stringData` are both possible: a Secret written by kubectl from a literal
-        // has `data`, one written from a manifest may have either. Reading only `data` would
-        // report a Secret as missing a key it plainly has, and the planner would then plan to
-        // patch a key that is already there.
-        var names = new HashSet<string>(StringComparer.Ordinal);
-        names.UnionWith(secret?.Data?.Keys ?? []);
-        names.UnionWith(secret?.StringData?.Keys ?? []);
-        return names.Order(StringComparer.Ordinal).ToList();
-    }
-
-    public IReadOnlyDictionary<string, IReadOnlyList<string>> IndexSecrets(string ns, IKubeSecretList? listing)
-    {
-        var index = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
-        foreach (var secret in listing?.Items ?? [])
-        {
-            // A Secret with no name cannot be addressed and cannot be what a declaration means.
-            // Skipping it is right; silently skipping a NAMESPACE would not be, which is the
-            // distinction this whole class turns on.
-            var name = secret?.Metadata?.Name;
-            if (string.IsNullOrEmpty(name))
-            {
-                continue;
-            }
-
-            index[$"{ns}/{name}"] = KeysOf(secret);
-        }
-
-        return index;
-    }
 
     public IPostgresObservation IndexPostgres(IEnumerable<string?> roleNames, IEnumerable<string?> databaseNames) => new PostgresObservation
     {
@@ -65,37 +32,33 @@ public sealed class Observer : IObserver
             .ToList(),
     };
 
-    public IObservation Observe(IEnumerable<INamespaceListing> results, IPostgresObservation? postgres)
+    public IObservation Observe(IEnumerable<ISecretProbe> probes, IPostgresObservation? postgres)
     {
-        var namespaces = new List<string>();
-        var secrets = new Dictionary<string, List<string>?>(StringComparer.Ordinal);
-        var failures = new List<NamespaceFailure>();
+        var all = probes.ToList();
 
-        foreach (var result in results)
+        // A namespace is enumerated only if EVERY probe in it answered. One failure and the whole
+        // namespace is undecidable: the planner reports each of its keys as unknown, which is loud
+        // and correct. Keeping the namespace because some probes worked would let a failed probe
+        // read as "absent", and turn a transient API error into a create over a live Secret.
+        var failed = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var probe in all.Where(p => p.Exists is null))
         {
-            if (result.Error is not null)
-            {
-                // Deliberately NOT added to the namespaces. The planner will report every key in
-                // it as undecidable, which is loud and correct; adding it would make a failed
-                // listing indistinguishable from an empty namespace and turn a transient API
-                // error into a destructive plan.
-                failures.Add(new NamespaceFailure { Namespace = result.Namespace, Error = result.Error });
-                continue;
-            }
+            failed.TryAdd(probe.Namespace, probe.Error ?? "the probe returned neither an answer nor an error");
+        }
 
-            namespaces.Add(result.Namespace);
-            foreach (var (target, keys) in IndexSecrets(result.Namespace, result.Listing))
-            {
-                secrets[target] = keys.ToList();
-            }
+        var secrets = new Dictionary<string, List<string>?>(StringComparer.Ordinal);
+        foreach (var probe in all.Where(p => p.Exists == true && !failed.ContainsKey(p.Namespace)))
+        {
+            // Exists, contents not read — and not readable: the Role holds no get or list.
+            secrets[$"{probe.Namespace}/{probe.Name}"] = null;
         }
 
         return new Observation
         {
-            Namespaces = namespaces.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList(),
+            Namespaces = all.Select(p => p.Namespace).Where(ns => !failed.ContainsKey(ns)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList(),
             Secrets = secrets,
             Postgres = postgres is null ? null : new PostgresObservation { Roles = postgres.Roles?.ToList(), Databases = postgres.Databases?.ToList() },
-            Failures = failures,
+            Failures = failed.Select(f => new NamespaceFailure { Namespace = f.Key, Error = f.Value }).ToList(),
         };
     }
 }

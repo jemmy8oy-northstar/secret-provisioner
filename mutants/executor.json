@@ -121,13 +121,6 @@
       "kills": "A_create_secret_step_reports_key_NAMES_and_the_report_has_no_data_field_at_all"
     },
     {
-      "id": "patch-aimed-at-the-wrong-secret",
-      "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
-      "from": "PatchSecretKeyAsync(step.Namespace, step.SecretName, key,",
-      "to": "PatchSecretKeyAsync(step.Namespace, key, key,",
-      "kills": "A_partial_estate_patches_one_key_and_never_rewrites_the_Secret"
-    },
-    {
       "id": "type-not-propagated-into-materialise",
       "file": "backend/Balenthiran.SecretProvisioner.Services/Executor.cs",
       "from": "Materialise(step, k.Key, k.Type, run)",

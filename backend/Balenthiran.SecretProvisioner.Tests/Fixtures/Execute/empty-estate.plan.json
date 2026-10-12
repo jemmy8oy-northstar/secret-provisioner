@@ -115,7 +115,6 @@
   "summary": {
     "steps": 6,
     "createSecret": 2,
-    "patchKey": 0,
     "createRole": 2,
     "createDatabase": 2,
     "blocked": 3,
