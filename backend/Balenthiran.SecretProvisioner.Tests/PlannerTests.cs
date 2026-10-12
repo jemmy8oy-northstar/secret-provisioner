@@ -34,13 +34,25 @@ public class PlannerTests
         Postgres = new PostgresObservation { Roles = [], Databases = [] },
     };
 
+    // What the create-only probe actually reports: the Secret exists, and nothing about its keys.
+    private static Observation Unread() => new()
+    {
+        Namespaces = ["balenthiran"],
+        Secrets = new() { ["balenthiran/around-the-world-secrets"] = null },
+        Postgres = new PostgresObservation { Roles = [], Databases = [] },
+    };
+
     [Fact]
     public void The_clobber_guard_rejects_a_plan_that_creates_over_an_existing_secret()
     {
         // Unreachable through Plan by construction, so it is called with a plan built to be wrong.
         var bug = Assert.Throws<InvalidOperationException>(() => new Planner().AssertNeverClobbers(Creating("around-the-world-secrets"), Live("A", "B", "C", "D")));
-        Assert.Equal("planner bug: planned to create balenthiran/around-the-world-secrets, which already exists with 4 key(s) — that would delete every key not in this plan", bug.Message);
+        Assert.Equal("planner bug: planned to create balenthiran/around-the-world-secrets, which already exists — that would delete every key not in this plan", bug.Message);
     }
+
+    [Fact]
+    public void The_clobber_guard_rejects_a_create_over_an_existing_secret_it_never_read() =>
+        Assert.Throws<InvalidOperationException>(() => new Planner().AssertNeverClobbers(Creating("around-the-world-secrets"), Unread()));
 
     [Fact]
     public void The_clobber_guard_passes_a_create_for_a_secret_that_does_not_exist() =>
@@ -54,21 +66,34 @@ public class PlannerTests
         Drift = [],
         Unmanaged = [],
         Noop = [],
-        Summary = new PlanSummary { Steps = 1, CreateSecret = 1, PatchKey = 0, CreateRole = 0, CreateDatabase = 0, Blocked = 0, Unknown = 0, Drift = 0, Unmanaged = 0, Noop = 0 },
+        Summary = new PlanSummary { Steps = 1, CreateSecret = 1, CreateRole = 0, CreateDatabase = 0, Blocked = 0, Unknown = 0, Drift = 0, Unmanaged = 0, Noop = 0 },
     };
 
     [Fact]
-    public void An_existing_secret_is_patched_and_never_created_whatever_it_holds()
+    public void An_existing_secret_is_never_written_whatever_it_holds()
     {
-        // Every subset of the five keys being present: none may produce a create-secret.
+        // Every subset of the five keys being present: no step may touch the Secret, and no
+        // Postgres role may be made for a connection string that could never be written.
         var all = AroundTheWorld().Keys.Select(k => k.Key).ToArray();
         for (var mask = 0; mask < 1 << all.Length; mask++)
         {
             var present = all.Where((_, i) => (mask & (1 << i)) != 0).ToArray();
             var plan = new Planner().Plan([AroundTheWorld()], Live(present));
-            Assert.DoesNotContain(plan.Steps, s => s.Kind == "create-secret");
-            Assert.All(plan.Steps.Where(s => s.Kind == "patch-secret-key"), s => Assert.Equal(present.Order(StringComparer.Ordinal), s.Preserves!));
+            Assert.Empty(plan.Steps);
+            Assert.All(plan.Blocked.Where(b => b.Action == "add-by-hand"), b => Assert.DoesNotContain(b.Key, present));
         }
+    }
+
+    [Fact]
+    public void An_existing_secret_that_was_never_read_is_left_alone_key_by_key()
+    {
+        var plan = new Planner().Plan([AroundTheWorld()], Unread());
+
+        Assert.Empty(plan.Steps);
+        Assert.Empty(plan.Blocked);
+        Assert.Empty(plan.Unmanaged);
+        Assert.Equal(AroundTheWorld().Keys.Select(k => k.Key), plan.Noop.Select(n => n.Key));
+        Assert.All(plan.Noop, n => Assert.Equal("the Secret exists — create-only never reads or changes an existing Secret", n.Reason));
     }
 
     [Fact]
@@ -88,6 +113,7 @@ public class PlannerTests
         {
             new Observation { Namespaces = ["balenthiran"], Secrets = [], Postgres = new PostgresObservation { Roles = [], Databases = [] } },
             Live("Admin__Key", "PhotoStorage__AccessKeyId"),
+            Unread(),
             new Observation { Namespaces = [], Secrets = [] },
             new Observation { Namespaces = ["balenthiran"], Secrets = [], Postgres = null },
             new Observation { Namespaces = ["balenthiran"], Secrets = [], Postgres = new PostgresObservation { Roles = ["aroundtheworld"], Databases = [] } },
@@ -105,7 +131,7 @@ public class PlannerTests
     public void The_planner_never_plans_a_delete_in_any_shape()
     {
         var plan = new Planner().Plan([AroundTheWorld()], Live("Admin__Key", "Stray"));
-        Assert.All(plan.Steps, s => Assert.Contains(s.Kind, new[] { "create-role", "create-database", "create-secret", "patch-secret-key" }));
+        Assert.All(plan.Steps, s => Assert.Contains(s.Kind, new[] { "create-role", "create-database", "create-secret" }));
         Assert.Contains(plan.Unmanaged, e => e.Key == "Stray");
     }
 
@@ -113,7 +139,6 @@ public class PlannerTests
     // pair is one key's DDL, so steps count only the writes.
     private static List<string> Landed(IPlan plan) =>
     [
-        .. plan.Steps.Where(s => s.Kind == "patch-secret-key").Select(s => s.Key!),
         .. plan.Steps.Where(s => s.Kind == "create-secret").SelectMany(s => s.Keys!).Select(k => k.Key),
         .. plan.Blocked.Select(e => e.Key),
         .. plan.Unknown.Select(e => e.Key),

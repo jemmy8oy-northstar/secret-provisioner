@@ -95,9 +95,10 @@ public class ClusterTlsHandshakeTests
             using var http = KubernetesHttpClientFactory.Create(config);
             try
             {
-                var listing = await new KubernetesClient(http, Token, new Observer()).ListSecretsAsync("balenthiran");
+                // Any 2xx completes the call; what matters here is that the handshake got that far.
+                await new KubernetesClient(http, Token).CreateSecretAsync("balenthiran", "handshake", new Dictionary<string, string>());
                 await served;
-                return (null, listing.Items!.Count);
+                return (null, 0);
             }
             catch (KubernetesApiException e)
             {

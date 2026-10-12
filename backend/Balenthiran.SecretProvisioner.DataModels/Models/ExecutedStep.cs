@@ -28,21 +28,17 @@ public sealed class ExecutedStep : IExecutedStep
     [JsonPropertyOrder(5)]
     public string? Owner { get; init; }
 
-    /// <summary><c>create-secret</c> and <c>patch-secret-key</c>.</summary>
+    /// <summary><c>create-secret</c> only.</summary>
     [JsonPropertyOrder(6)]
     public string? Namespace { get; init; }
 
-    /// <summary><c>create-secret</c> and <c>patch-secret-key</c>.</summary>
+    /// <summary><c>create-secret</c> only.</summary>
     [JsonPropertyOrder(7)]
     public string? SecretName { get; init; }
 
     /// <summary><c>create-secret</c> only: the key NAMES, never the entries that carry values.</summary>
     [JsonPropertyOrder(8)]
     public List<string>? Keys { get; init; }
-
-    /// <summary><c>patch-secret-key</c> only.</summary>
-    [JsonPropertyOrder(9)]
-    public string? Key { get; init; }
 
     IReadOnlyList<string>? IExecutedStep.Keys => Keys;
 }

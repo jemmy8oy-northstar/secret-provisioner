@@ -195,13 +195,9 @@ public class HostTests
 
     private sealed class NoCluster : IKubernetesClient
     {
-        public Task<IKubeSecretList> ListSecretsAsync(string ns, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
-        public Task<IReadOnlyList<INamespaceListing>> ObserveNamespacesAsync(IEnumerable<string> namespaces, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ISecretProbe>> ProbeSecretsAsync(IEnumerable<(string Namespace, string Name)> secrets, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task CreateSecretAsync(string ns, string name, IReadOnlyDictionary<string, string> data, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
-        public Task PatchSecretKeyAsync(string ns, string name, string key, string value, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class Handlers : IProvisionerHandlers

@@ -18,7 +18,7 @@ namespace Balenthiran.SecretProvisioner.Services;
 /// </summary>
 /// <remarks>
 /// THE PLAN SAYS WHAT. THE DECLARATIONS SAY WITH WHAT. A step carries the decision and its
-/// identity — "patch balenthiran/balenthiran-secrets#DATABASE_URL" — but not the parameters,
+/// identity — "create Secret balenthiran/balenthiran-secrets with 1 key(s)" — but not the parameters,
 /// because <c>Source</c> is prose written for a human ("generate 32 random bytes, hex-encoded").
 /// Deriving a cryptographic parameter by parsing an English sentence is not a thing to do, so
 /// <c>bytes</c>, <c>role</c> and <c>database</c> are resolved from the declaration the step names.
@@ -368,11 +368,6 @@ public sealed class Executor : IExecutor
                 await _kubernetes.CreateSecretAsync(step.Namespace, step.SecretName, data, cancellationToken);
                 return;
 
-            case "patch-secret-key":
-                var key = Required(step.Key, step, "key");
-                await _kubernetes.PatchSecretKeyAsync(step.Namespace, step.SecretName, key, Materialise(step, key, step.Type, run), cancellationToken);
-                return;
-
             default:
                 // Reachable only if the planner learns a step kind this executor does not. They
                 // are edited in different repositories, so this must stop the run rather than
@@ -430,7 +425,6 @@ public sealed class Executor : IExecutor
         "create-role" => new ExecutedStep { Kind = step.Kind, Detail = step.Detail, Role = step.Role },
         "create-database" => new ExecutedStep { Kind = step.Kind, Detail = step.Detail, Database = step.Database, Owner = step.Role },
         "create-secret" => new ExecutedStep { Kind = step.Kind, Detail = step.Detail, Namespace = step.Namespace, SecretName = step.SecretName, Keys = (step.Keys ?? []).Select(k => k.Key).ToList() },
-        "patch-secret-key" => new ExecutedStep { Kind = step.Kind, Detail = step.Detail, Namespace = step.Namespace, SecretName = step.SecretName, Key = step.Key },
         _ => new ExecutedStep { Kind = step.Kind, Detail = step.Detail },
     };
 

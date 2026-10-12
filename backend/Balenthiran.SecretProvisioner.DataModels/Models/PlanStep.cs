@@ -3,7 +3,7 @@ using Balenthiran.SecretProvisioner.Abstractions.DataModels;
 
 namespace Balenthiran.SecretProvisioner.DataModels.Models;
 
-/// <summary>One action. Which fields are set depends on <see cref="Kind"/>: <c>create-role</c>, <c>create-database</c>, <c>create-secret</c> or <c>patch-secret-key</c>.</summary>
+/// <summary>One action. Which fields are set depends on <see cref="Kind"/>: <c>create-role</c>, <c>create-database</c> or <c>create-secret</c>.</summary>
 public sealed class PlanStep : IPlanStep
 {
     [JsonPropertyOrder(1)]
@@ -37,13 +37,8 @@ public sealed class PlanStep : IPlanStep
     [JsonPropertyOrder(10)]
     public List<StepKey>? Keys { get; init; }
 
-    /// <summary><c>patch-secret-key</c> only: the keys already there, which the patch must not disturb.</summary>
-    [JsonPropertyOrder(11)]
-    public List<string>? Preserves { get; init; }
-
     [JsonPropertyOrder(12)]
     public required string Detail { get; init; }
 
     IReadOnlyList<IStepKey>? IPlanStep.Keys => Keys;
-    IReadOnlyList<string>? IPlanStep.Preserves => Preserves;
 }

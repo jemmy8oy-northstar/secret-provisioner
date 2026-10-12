@@ -3,7 +3,7 @@ using Balenthiran.SecretProvisioner.Abstractions.DataModels;
 
 namespace Balenthiran.SecretProvisioner.DataModels.Models;
 
-/// <summary>A namespace whose Secret listing failed, and why.</summary>
+/// <summary>A namespace in which a Secret probe failed, and why.</summary>
 public sealed class NamespaceFailure : INamespaceFailure
 {
     [JsonPropertyOrder(1)]

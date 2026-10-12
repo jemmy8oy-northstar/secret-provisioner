@@ -19,15 +19,12 @@ public interface IExecutedStep
     /// <summary><c>create-database</c> only: the role that owns it.</summary>
     string? Owner { get; }
 
-    /// <summary><c>create-secret</c> and <c>patch-secret-key</c>.</summary>
+    /// <summary><c>create-secret</c> only.</summary>
     string? Namespace { get; }
 
-    /// <summary><c>create-secret</c> and <c>patch-secret-key</c>.</summary>
+    /// <summary><c>create-secret</c> only.</summary>
     string? SecretName { get; }
 
     /// <summary><c>create-secret</c> only: the key NAMES, never the entries that carry values.</summary>
     IReadOnlyList<string>? Keys { get; }
-
-    /// <summary><c>patch-secret-key</c> only.</summary>
-    string? Key { get; }
 }

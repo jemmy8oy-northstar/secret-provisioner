@@ -44,8 +44,7 @@ public static class ServiceRegistration
         services.TryAddSingleton(_ => KubernetesHttpClientFactory.Create(InClusterConfig.FromEnvironment()));
         services.TryAddScoped<IKubernetesClient>(sp => new KubernetesClient(
             sp.GetRequiredService<HttpClient>(),
-            InClusterConfig.FromEnvironment().Token,
-            sp.GetRequiredService<IObserver>()));
+            InClusterConfig.FromEnvironment().Token));
 
         services.TryAddScoped<IExecutor>(sp => new Executor(sp.GetRequiredService<IKubernetesClient>(), sp.GetRequiredService<IPostgresClient>()));
         services.TryAddSingleton<IPostgresEndpoint>(new PostgresEndpoint { Host = settings.AppHost, Port = settings.AppPort });
