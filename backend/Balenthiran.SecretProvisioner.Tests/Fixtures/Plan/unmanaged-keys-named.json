@@ -1,0 +1,72 @@
+{
+  "declarations": [
+    {
+      "app": "macro-metrics",
+      "namespace": "balenthiran",
+      "secretName": "macro-metrics-secrets",
+      "keys": [
+        {
+          "key": "FRED_API_KEY",
+          "type": "external"
+        }
+      ]
+    }
+  ],
+  "observation": {
+    "namespaces": [
+      "balenthiran"
+    ],
+    "secrets": {
+      "balenthiran/macro-metrics-secrets": [
+        "FRED_API_KEY",
+        "Zeta",
+        "Alpha"
+      ]
+    },
+    "postgres": null
+  },
+  "plan": {
+    "steps": [],
+    "blocked": [],
+    "unknown": [],
+    "drift": [],
+    "unmanaged": [
+      {
+        "app": "macro-metrics",
+        "namespace": "balenthiran",
+        "secretName": "macro-metrics-secrets",
+        "key": "Alpha",
+        "reason": "present in the cluster but declared nowhere — left untouched"
+      },
+      {
+        "app": "macro-metrics",
+        "namespace": "balenthiran",
+        "secretName": "macro-metrics-secrets",
+        "key": "Zeta",
+        "reason": "present in the cluster but declared nowhere — left untouched"
+      }
+    ],
+    "noop": [
+      {
+        "app": "macro-metrics",
+        "namespace": "balenthiran",
+        "secretName": "macro-metrics-secrets",
+        "key": "FRED_API_KEY",
+        "type": "external",
+        "reason": "already present — create-only leaves it alone"
+      }
+    ],
+    "summary": {
+      "steps": 0,
+      "createSecret": 0,
+      "patchKey": 0,
+      "createRole": 0,
+      "createDatabase": 0,
+      "blocked": 0,
+      "unknown": 0,
+      "drift": 0,
+      "unmanaged": 2,
+      "noop": 1
+    }
+  }
+}

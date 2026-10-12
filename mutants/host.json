@@ -1,0 +1,103 @@
+{
+  "command": "dotnet test backend/Balenthiran.SecretProvisioner.slnx",
+  "mutants": [
+    {
+      "id": "path-not-raw-target",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ProvisionerServer.cs",
+      "from": "Url = ctx.Features.Get<IHttpRequestFeature>()!.RawTarget,",
+      "to": "Url = ctx.Request.Path.Value!,",
+      "kills": "End_to_end. The framework's decoded path drops the query string, so GET /reconcile?x=1 stops being the router's question"
+    },
+    {
+      "id": "content-length-dropped",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ProvisionerServer.cs",
+      "from": "ContentLength = Header(ctx.Request.Headers[\"Content-Length\"]),",
+      "to": "ContentLength = null,",
+      "kills": "End_to_end. A body with a length reaches an unauthenticated write route"
+    },
+    {
+      "id": "transfer-encoding-dropped",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ProvisionerServer.cs",
+      "from": "TransferEncoding = Header(ctx.Request.Headers.TransferEncoding),",
+      "to": "TransferEncoding = null,",
+      "kills": "A_chunked_body_is_refused_over_the_wire_too"
+    },
+    {
+      "id": "log-unredacted",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ProvisionerServer.cs",
+      "from": "Redact(reply.Thrown.Message)",
+      "to": "reply.Thrown.Message",
+      "kills": "a host test that captures the log. A Postgres error quoting a generated password reaches the pod log"
+    },
+    {
+      "id": "redact-is-a-no-op",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ProvisionerServer.cs",
+      "from": "public static string Redact(string text) => SecretShaped.Replace(text, \"[redacted]\");",
+      "to": "public static string Redact(string text) => text;",
+      "kills": "Redact_masks_any_run_shaped_like_a_generated_value"
+    },
+    {
+      "id": "redact-misses-exactly-32",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ProvisionerServer.cs",
+      "from": "\"[0-9a-f]{32,}\"",
+      "to": "\"[0-9a-f]{33,}\"",
+      "kills": "Redact theory. The shortest value the service generates is the one that leaks"
+    },
+    {
+      "id": "status-ignored",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ProvisionerServer.cs",
+      "from": "ctx.Response.StatusCode = reply.Status;",
+      "to": "",
+      "kills": "End_to_end. Every refusal is delivered as a 200"
+    },
+    {
+      "id": "allow-header-dropped",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ProvisionerServer.cs",
+      "from": "ctx.Response.Headers.Allow = reply.Allow;",
+      "to": "",
+      "kills": "End_to_end. A 405 that does not say which method would have worked"
+    },
+    {
+      "id": "router-per-request",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ServiceRegistration.cs",
+      "from": "services.TryAddSingleton<IRouter, Router>();",
+      "to": "services.TryAddScoped<IRouter, Router>();",
+      "kills": "The_router_is_one_per_process. The in-flight guard would exist per request and never be true"
+    },
+    {
+      "id": "reconciler-per-process",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ServiceRegistration.cs",
+      "from": "services.TryAddScoped<IReconciler, Reconciler>();",
+      "to": "services.TryAddSingleton<IReconciler, Reconciler>();",
+      "kills": "The_reconciler_one_per_request. The token read at start is used until the kubelet rotates it and the API refuses it"
+    },
+    {
+      "id": "settings-print-the-password",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ProvisionerSettings.cs",
+      "from": "public override string ToString() => $\"postgres {AppHost}:{AppPort}\";",
+      "to": "public override string ToString() => ConnectionString;",
+      "kills": "The_settings_never_print_the_password"
+    },
+    {
+      "id": "parser-message-echoed",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ProvisionerSettings.cs",
+      "from": "throw new InvalidOperationException($\"{ConnectionStringVariable} is not a valid Npgsql connection string\");",
+      "to": "throw;",
+      "kills": "An_unparseable_connection_string_is_refused_without_quoting_it"
+    },
+    {
+      "id": "no-host-accepted",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ProvisionerSettings.cs",
+      "from": "if (string.IsNullOrEmpty(parsed.Host))",
+      "to": "if (false)",
+      "kills": "A_connection_string_with_no_host_is_refused"
+    },
+    {
+      "id": "port-not-derived",
+      "file": "backend/Balenthiran.SecretProvisioner.WebApi/ProvisionerSettings.cs",
+      "from": "return new ProvisionerSettings(connectionString, parsed.Host, parsed.Port);",
+      "to": "return new ProvisionerSettings(connectionString, parsed.Host, 5432);",
+      "kills": "The_apps_are_given_the_host_and_port_this_pod_dials"
+    }
+  ]
+}

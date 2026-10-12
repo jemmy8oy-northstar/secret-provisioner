@@ -1,0 +1,9 @@
+# Only `backend/` is copied, so this is about what rides along inside it.
+
+# The C# build's own output: a host bin/obj copied over the publish input would
+# feed it whatever the build machine last compiled.
+backend/**/bin
+backend/**/obj
+
+.git
+node_modules

@@ -1,0 +1,6 @@
+node_modules/
+*.log
+.env
+# An observation dumped for debugging carries key NAMES only, never values — but
+# it also carries the estate's topology, and this repo is public.
+observation*.json

@@ -1,0 +1,72 @@
+{
+  "declarations": [
+    {
+      "app": "distinct",
+      "namespace": "balenthiran",
+      "secretName": "distinct-secrets",
+      "keys": [
+        {
+          "key": "ConnectionStrings__DefaultConnection",
+          "type": "postgres-db",
+          "database": "distinct_db",
+          "role": "distinct_role"
+        }
+      ]
+    }
+  ],
+  "plan": {
+    "steps": [
+      {
+        "kind": "create-role",
+        "app": "distinct",
+        "namespace": "balenthiran",
+        "secretName": "distinct-secrets",
+        "key": "ConnectionStrings__DefaultConnection",
+        "type": "postgres-db",
+        "role": "distinct_role",
+        "detail": "CREATE ROLE distinct_role LOGIN PASSWORD <generated>"
+      },
+      {
+        "kind": "create-database",
+        "app": "distinct",
+        "namespace": "balenthiran",
+        "secretName": "distinct-secrets",
+        "key": "ConnectionStrings__DefaultConnection",
+        "type": "postgres-db",
+        "database": "distinct_db",
+        "role": "distinct_role",
+        "detail": "CREATE DATABASE distinct_db OWNER distinct_role"
+      },
+      {
+        "kind": "create-secret",
+        "namespace": "balenthiran",
+        "secretName": "distinct-secrets",
+        "keys": [
+          {
+            "key": "ConnectionStrings__DefaultConnection",
+            "type": "postgres-db",
+            "source": "the Npgsql connection string for distinct_db as distinct_role"
+          }
+        ],
+        "detail": "create Secret balenthiran/distinct-secrets with 1 key(s)"
+      }
+    ],
+    "blocked": [],
+    "unknown": [],
+    "drift": [],
+    "unmanaged": [],
+    "noop": [],
+    "summary": {
+      "steps": 3,
+      "createSecret": 1,
+      "patchKey": 0,
+      "createRole": 1,
+      "createDatabase": 1,
+      "blocked": 0,
+      "unknown": 0,
+      "drift": 0,
+      "unmanaged": 0,
+      "noop": 0
+    }
+  }
+}

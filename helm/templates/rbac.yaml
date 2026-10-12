@@ -1,0 +1,53 @@
+{{- /*
+What this pod may do to Secrets, and nothing else. The verbs are exactly the
+calls KubernetesClient.cs makes:
+
+  list   — GET  /api/v1/namespaces/<ns>/secrets         (observe)
+  get    — GET  /api/v1/namespaces/<ns>/secrets/<name>  (re-read before a patch)
+  create — POST /api/v1/namespaces/<ns>/secrets         (a Secret that does not exist)
+  patch  — PATCH one key into a Secret that does
+
+NO `delete` AND NO `update`. Create-only is enforced in the code; leaving these
+verbs out means the cluster enforces it too, so a bug in the code cannot become
+a deleted Secret. `update` is the dangerous one: it replaces the whole Secret,
+which is how one provisioned key would wipe the other four in
+around-the-world-secrets.
+
+A Role per namespace, not a ClusterRole — see `targetNamespaces` in values.yaml.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "app.fullname" . }}
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+{{- range .Values.targetNamespaces }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "app.fullname" $ }}
+  namespace: {{ . }}
+  labels:
+    {{- include "app.labels" $ | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["list", "get", "create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "app.fullname" $ }}
+  namespace: {{ . }}
+  labels:
+    {{- include "app.labels" $ | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "app.fullname" $ }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "app.fullname" $ }}
+    namespace: {{ $.Release.Namespace }}
+{{- end }}

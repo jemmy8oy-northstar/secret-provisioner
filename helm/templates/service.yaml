@@ -1,0 +1,25 @@
+{{- /*
+ClusterIP only. There is deliberately no ingress.yaml in this chart: the
+provisioner is internal (claude-code-bot#97), and the way in is
+`kubectl port-forward svc/secret-provisioner-secret-provisioner 8080:80`.
+*/}}
+{{- range .Values.apps }}
+{{- if .service }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "app.fullname" $ }}-{{ .name }}
+  labels:
+    app: {{ .name }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .service.port }}
+      targetPort: {{ .service.targetPort }}
+      protocol: TCP
+  selector:
+    app: {{ .name }}
+    release: {{ include "app.fullname" $ }}
+---
+{{- end }}
+{{- end }}

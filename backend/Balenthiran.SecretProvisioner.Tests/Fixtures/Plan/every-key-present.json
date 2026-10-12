@@ -1,0 +1,118 @@
+{
+  "declarations": [
+    {
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "keys": [
+        {
+          "key": "ConnectionStrings__DefaultConnection",
+          "type": "postgres-db",
+          "database": "aroundtheworld",
+          "role": "aroundtheworld"
+        },
+        {
+          "key": "Jwt__Secret",
+          "type": "random",
+          "bytes": 32
+        },
+        {
+          "key": "Admin__Key",
+          "type": "random",
+          "bytes": 16
+        },
+        {
+          "key": "PhotoStorage__AccessKeyId",
+          "type": "external"
+        },
+        {
+          "key": "PhotoStorage__SecretAccessKey",
+          "type": "external"
+        }
+      ]
+    }
+  ],
+  "observation": {
+    "namespaces": [
+      "balenthiran"
+    ],
+    "secrets": {
+      "balenthiran/around-the-world-secrets": [
+        "ConnectionStrings__DefaultConnection",
+        "Jwt__Secret",
+        "Admin__Key",
+        "PhotoStorage__AccessKeyId",
+        "PhotoStorage__SecretAccessKey"
+      ]
+    },
+    "postgres": {
+      "roles": [
+        "aroundtheworld"
+      ],
+      "databases": [
+        "aroundtheworld"
+      ]
+    }
+  },
+  "plan": {
+    "steps": [],
+    "blocked": [],
+    "unknown": [],
+    "drift": [],
+    "unmanaged": [],
+    "noop": [
+      {
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "ConnectionStrings__DefaultConnection",
+        "type": "postgres-db",
+        "reason": "already present — create-only leaves it alone"
+      },
+      {
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "Jwt__Secret",
+        "type": "random",
+        "reason": "already present — create-only leaves it alone"
+      },
+      {
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "Admin__Key",
+        "type": "random",
+        "reason": "already present — create-only leaves it alone"
+      },
+      {
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "PhotoStorage__AccessKeyId",
+        "type": "external",
+        "reason": "already present — create-only leaves it alone"
+      },
+      {
+        "app": "around-the-world",
+        "namespace": "balenthiran",
+        "secretName": "around-the-world-secrets",
+        "key": "PhotoStorage__SecretAccessKey",
+        "type": "external",
+        "reason": "already present — create-only leaves it alone"
+      }
+    ],
+    "summary": {
+      "steps": 0,
+      "createSecret": 0,
+      "patchKey": 0,
+      "createRole": 0,
+      "createDatabase": 0,
+      "blocked": 0,
+      "unknown": 0,
+      "drift": 0,
+      "unmanaged": 0,
+      "noop": 5
+    }
+  }
+}

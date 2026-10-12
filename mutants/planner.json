@@ -1,0 +1,110 @@
+{
+  "command": "dotnet test backend/Balenthiran.SecretProvisioner.slnx",
+  "mutants": [
+    {
+      "id": "existing-secret-created-not-patched",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "            if (existing is null)\n            {\n                steps.Add(new PlanStep",
+      "to": "            if (true)\n            {\n                steps.Add(new PlanStep",
+      "kills": "An_existing_secret_is_patched_and_never_created_whatever_it_holds, and the clobber guard"
+    },
+    {
+      "id": "clobber-guard-disarmed",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "            if (secrets.TryGetValue(target, out var keys))",
+      "to": "            if (false && secrets.TryGetValue(target, out var keys))",
+      "kills": "The_clobber_guard_rejects_a_plan_that_creates_over_an_existing_secret"
+    },
+    {
+      "id": "unenumerated-namespace-treated-as-empty",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "            var enumerated = state.Namespaces.Contains(decl.Namespace);",
+      "to": "            var enumerated = true;",
+      "kills": "golden namespace-not-enumerated; A_failed_listing_reaches_the_planner_as_undecidable_never_as_a_create"
+    },
+    {
+      "id": "uninspected-postgres-read-as-empty",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "                        if (state.Postgres is null)\n",
+      "to": "                        if (false)\n",
+      "kills": "golden postgres-not-inspected"
+    },
+    {
+      "id": "planned-role-not-remembered",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "                        plannedRoles.Add(role);",
+      "to": "",
+      "kills": "golden two-declarations-one-role"
+    },
+    {
+      "id": "role-and-database-confused",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "                        var database = entry.Database!;",
+      "to": "                        var database = entry.Role!;",
+      "kills": "golden distinct-role-and-database"
+    },
+    {
+      "id": "random-bytes-ignore-declaration",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "var bytes = entry.Bytes ?? DefaultRandomBytes;",
+      "to": "var bytes = DefaultRandomBytes;",
+      "kills": "golden empty-estate (Admin__Key declares 16)"
+    },
+    {
+      "id": "drift-never-reported",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "!state.Postgres.Value.Roles.Contains(entry.Role!))",
+      "to": "false)",
+      "kills": "golden present-key-role-missing-is-drift"
+    },
+    {
+      "id": "unmanaged-keys-dropped",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "            if (existing is not null)\n            {\n                var declared",
+      "to": "            if (false)\n            {\n                var declared",
+      "kills": "golden unmanaged-keys-named; The_planner_never_plans_a_delete_in_any_shape"
+    },
+    {
+      "id": "ddl-after-writes",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "        var steps = new List<PlanStep>(ddl);",
+      "to": "        var steps = new List<PlanStep>();",
+      "kills": "golden empty-estate (role and database before the Secret that names them)"
+    },
+    {
+      "id": "unknown-type-falls-through-silently",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "                        unknown.Add(At(entry, $\"no planner branch for type",
+      "to": "                        noop.Add(At(entry, $\"no planner branch for type",
+      "kills": "golden unknown-type-stops"
+    },
+    {
+      "id": "null-namespaces-accepted",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "        if (observed.Namespaces is null)\n",
+      "to": "        if (false)\n",
+      "kills": "refuse-no-namespaces"
+    },
+    {
+      "id": "observer-claims-failed-namespace",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Observer.cs",
+      "from": "                failures.Add(new NamespaceFailure { Namespace = result.Namespace, Error = result.Error });\n                continue;",
+      "to": "                failures.Add(new NamespaceFailure { Namespace = result.Namespace, Error = result.Error });\n                namespaces.Add(result.Namespace);\n                continue;",
+      "kills": "A_namespace_whose_listing_failed_is_not_claimed_as_enumerated; A_failed_listing_reaches_the_planner..."
+    },
+    {
+      "id": "observer-reads-only-data",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Observer.cs",
+      "from": "        names.UnionWith(secret?.StringData?.Keys ?? []);",
+      "to": "",
+      "kills": "StringData_counts_as_present_not_missing"
+    },
+    {
+      "id": "observer-keeps-system-databases",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Observer.cs",
+      "from": "            .Where(n => !SystemDatabases.Contains(n))",
+      "to": "            .Where(n => true)",
+      "kills": "System_roles_and_databases_are_not_mistaken_for_ours"
+    }
+  ]
+}
