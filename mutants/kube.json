@@ -2,25 +2,25 @@
   "command": "dotnet test backend/Balenthiran.SecretProvisioner.slnx",
   "mutants": [
     {
-      "id": "failed-namespace-becomes-empty",
+      "id": "failed-probe-becomes-absent",
       "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "results.Add(new NamespaceListing { Namespace = ns, Error = Redact(e.Message) });",
-      "to": "results.Add(new NamespaceListing { Namespace = ns, Listing = new KubeSecretList { Items = [] } });",
-      "kills": "A_failed_namespace_carries_an_error_and_NO_listing: a transient 503 becomes 'this namespace holds no Secrets', so the planner plans a create for a Secret that already exists"
+      "from": "results.Add(new SecretProbe { Namespace = ns, Name = name, Error = Redact(e.Message) });",
+      "to": "results.Add(new SecretProbe { Namespace = ns, Name = name, Exists = false });",
+      "kills": "A_failed_probe_carries_an_error_and_NO_answer_and_the_rest_still_run: a transient 503 becomes 'free name', so the planner plans a create for a Secret that may exist"
     },
     {
-      "id": "failed-namespace-is-dropped",
+      "id": "failed-probe-is-dropped",
       "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "results.Add(new NamespaceListing { Namespace = ns, Error = Redact(e.Message) });",
+      "from": "results.Add(new SecretProbe { Namespace = ns, Name = name, Error = Redact(e.Message) });",
       "to": "_ = e;",
-      "kills": "A_failed_namespace_carries_an_error_and_NO_listing: nothing destructive follows, but the run reports undecidable keys with no stated reason"
+      "kills": "A_failed_probe_carries_an_error_and_NO_answer_and_the_rest_still_run: nothing destructive follows, but the run reports undecidable keys with no stated reason"
     },
     {
       "id": "one-failure-stops-the-rest",
       "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "        foreach (var ns in namespaces)\n        {\n            try",
-      "to": "        foreach (var ns in namespaces)\n        {\n            if (results.Any(r => r.Error is not null))\n            {\n                break;\n            }\n\n            try",
-      "kills": "One_namespace_failing_does_not_stop_the_others_being_read"
+      "from": "        foreach (var (ns, name) in secrets)\n        {\n            try",
+      "to": "        foreach (var (ns, name) in secrets)\n        {\n            if (results.Any(r => r.Error is not null))\n            {\n                break;\n            }\n\n            try",
+      "kills": "A_failed_probe_carries_an_error_and_NO_answer_and_the_rest_still_run"
     },
     {
       "id": "create-becomes-a-replace",
@@ -32,8 +32,8 @@
     {
       "id": "create-becomes-a-patch",
       "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "            HttpMethod.Post,",
-      "to": "            HttpMethod.Patch,",
+      "from": "            $\"creating Secret {ns}/{name}\",\n            HttpMethod.Post,",
+      "to": "            $\"creating Secret {ns}/{name}\",\n            HttpMethod.Patch,",
       "kills": "CreateSecret_POSTs_to_the_collection_with_stringData: a merge patch to the collection overwrites instead of conflicting"
     },
     {
@@ -42,62 +42,6 @@
       "from": "                stringData = data,",
       "to": "                data,",
       "kills": "CreateSecret_POSTs_to_the_collection_with_stringData: plaintext sent where the API expects base64, so every value decodes to garbage"
-    },
-    {
-      "id": "patch-is-unconditional",
-      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "metadata = new { resourceVersion }, stringData = new Dictionary",
-      "to": "stringData = new Dictionary",
-      "kills": "PatchSecretKey_reads_then_sends_a_conditional_merge_patch_of_one_key: the check becomes a plain check-then-act race"
-    },
-    {
-      "id": "the-patch-resends-every-value",
-      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "metadata = new { resourceVersion }, stringData = new Dictionary",
-      "to": "metadata = new { resourceVersion }, data = secret.Data, stringData = new Dictionary",
-      "kills": "PatchSecretKey_reads_then_sends_a_conditional_merge_patch_of_one_key: every other key's value is sent back over the wire"
-    },
-    {
-      "id": "patch-is-a-put",
-      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "            HttpMethod.Patch,",
-      "to": "            HttpMethod.Put,",
-      "kills": "PatchSecretKey_reads_then_sends_a_conditional_merge_patch_of_one_key: a PUT replaces the whole Secret"
-    },
-    {
-      "id": "patch-content-type-is-plain-json",
-      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "\"application/merge-patch+json\"",
-      "to": "\"application/json\"",
-      "kills": "PatchSecretKey_reads_then_sends_a_conditional_merge_patch_of_one_key: the API rejects the patch or reads it as another patch type"
-    },
-    {
-      "id": "existing-key-is-overwritten",
-      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "if (observer.KeysOf(secret).Contains(key))",
-      "to": "if (observer.KeysOf(secret).Contains(key + \"\\0\"))",
-      "kills": "An_existing_key_is_refused_this_provisioner_never_overwrites: the provisioner overwrites a value it did not create"
-    },
-    {
-      "id": "a-missing-resource-version-is-tolerated",
-      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "if (string.IsNullOrEmpty(resourceVersion))",
-      "to": "if (secret is null)",
-      "kills": "A_Secret_returned_without_a_resourceVersion_is_refused_not_patched_unconditionally: the precondition is silently dropped from the patch"
-    },
-    {
-      "id": "an-empty-resource-version-is-tolerated",
-      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "if (string.IsNullOrEmpty(resourceVersion))",
-      "to": "if (resourceVersion is null)",
-      "kills": "A_Secret_with_an_empty_resourceVersion_is_refused: an empty precondition is no precondition"
-    },
-    {
-      "id": "the-refusal-quotes-the-secret",
-      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "the key is already present, and this",
-      "to": "the key is already present in {JsonSerializer.Serialize(secret)}, and this",
-      "kills": "No_value_from_a_200_response_reaches_an_error_message: a 200 body carries every value in the Secret and the executor copies messages into its report"
     },
     {
       "id": "the-token-is-not-redacted-on-transport-failure",
@@ -135,25 +79,11 @@
       "kills": "A_409_from_create_surfaces_as_a_Conflict_the_caller_can_branch_on"
     },
     {
-      "id": "an-unparseable-200-is-an-empty-listing",
-      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "? throw new KubernetesApiException($\"listing Secrets in {ns}: the API answered 200 with something that is not a v1.SecretList\")",
-      "to": "? new KubeSecretList { Items = [] }",
-      "kills": "A_200_that_is_not_a_SecretList_is_a_failure_not_an_empty_namespace: a proxy answering 200 with HTML reads as an empty namespace"
-    },
-    {
       "id": "the-namespace-is-concatenated",
       "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "HttpMethod.Get, $\"/api/v1/namespaces/{Uri.EscapeDataString(ns)}/secrets\"",
-      "to": "HttpMethod.Get, $\"/api/v1/namespaces/{ns}/secrets\"",
+      "from": "$\"/api/v1/namespaces/{Uri.EscapeDataString(ns)}/secrets?dryRun=All\"",
+      "to": "$\"/api/v1/namespaces/{ns}/secrets?dryRun=All\"",
       "kills": "A_namespace_name_is_encoded_into_the_path_never_concatenated"
-    },
-    {
-      "id": "the-secret-name-is-concatenated",
-      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
-      "from": "secrets/{Uri.EscapeDataString(name)}\";",
-      "to": "secrets/{name}\";",
-      "kills": "The_name_of_a_patched_Secret_is_encoded_into_the_path"
     },
     {
       "id": "a-non-2xx-is-a-success",
@@ -188,7 +118,7 @@
       "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
       "from": "request.Headers.Authorization = new AuthenticationHeaderValue(\"Bearer\", token);",
       "to": "request.Headers.Authorization = null;",
-      "kills": "ListSecrets_asks_the_right_URL_with_the_right_credential"
+      "kills": "A_probe_is_a_dry_run_POST_to_the_collection_carrying_no_data"
     },
     {
       "id": "an-empty-ca-is-accepted",
@@ -329,6 +259,27 @@
       "from": "Timeout = DefaultTimeout,",
       "to": "Timeout = Timeout.InfiniteTimeSpan,",
       "kills": "The_factory_builds_a_thirty_second_client_for_the_configured_host_and_port: a hung API call holds a reconcile open forever"
+    },
+    {
+      "id": "the-probe-is-not-a-dry-run",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
+      "from": "/secrets?dryRun=All\"",
+      "to": "/secrets\"",
+      "kills": "A_probe_is_a_dry_run_POST_to_the_collection_carrying_no_data: every probe of a free name would CREATE an empty Secret that then shadows the real one forever"
+    },
+    {
+      "id": "any-409-means-exists",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
+      "from": "when (e.Status == 409 && e.Reason == \"AlreadyExists\")",
+      "to": "when (e.Status == 409)",
+      "kills": "A_409_for_any_other_reason_is_a_failure_not_an_answer"
+    },
+    {
+      "id": "any-refusal-means-exists",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Clients/KubernetesClient.cs",
+      "from": "when (e.Status == 409 && e.Reason == \"AlreadyExists\")",
+      "to": "when (e.Status is not null)",
+      "kills": "A_403_is_a_failure_not_an_absence: a namespace outside targetNamespaces would read as fully provisioned"
     }
   ]
 }

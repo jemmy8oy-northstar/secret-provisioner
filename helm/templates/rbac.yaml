@@ -1,17 +1,13 @@
 {{- /*
-What this pod may do to Secrets, and nothing else. The verbs are exactly the
-calls KubernetesClient.cs makes:
+What this pod may do to Secrets: CREATE, and nothing else (James, secret-provisioner#9).
 
-  list   — GET  /api/v1/namespaces/<ns>/secrets         (observe)
-  get    — GET  /api/v1/namespaces/<ns>/secrets/<name>  (re-read before a patch)
-  create — POST /api/v1/namespaces/<ns>/secrets         (a Secret that does not exist)
-  patch  — PATCH one key into a Secret that does
+  create — POST /api/v1/namespaces/<ns>/secrets              (a Secret that does not exist)
+  create — POST /api/v1/namespaces/<ns>/secrets?dryRun=All   (does it exist? 409 AlreadyExists if so)
 
-NO `delete` AND NO `update`. Create-only is enforced in the code; leaving these
-verbs out means the cluster enforces it too, so a bug in the code cannot become
-a deleted Secret. `update` is the dangerous one: it replaces the whole Secret,
-which is how one provisioned key would wipe the other four in
-around-the-world-secrets.
+NO get, list, watch, patch, update or delete. get/list/watch return Secret VALUES — there is no
+RBAC verb for "key names only" — so without them this pod cannot read any Secret in the namespace,
+including the ones it did not create. Without patch/update/delete it cannot change or remove one.
+That is enforced by the API server, so no bug in the code can turn into a read or an overwrite.
 
 A Role per namespace, not a ClusterRole — see `targetNamespaces` in values.yaml.
 */}}
@@ -33,7 +29,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["list", "get", "create", "patch"]
+    verbs: ["create"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

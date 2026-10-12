@@ -6,11 +6,11 @@ namespace Balenthiran.SecretProvisioner.DataModels.Models;
 /// <summary>What was actually looked at. A namespace absent from <see cref="Namespaces"/> means "not enumerated", never "empty" — the distinction the planner exists to hold.</summary>
 public sealed class Observation : IObservation
 {
-    /// <summary>Namespaces whose Secrets were listed. Null is refused by the planner.</summary>
+    /// <summary>Namespaces in which every declared Secret was probed. Null is refused by the planner.</summary>
     [JsonPropertyOrder(1)]
     public List<string>? Namespaces { get; init; }
 
-    /// <summary>Key names per existing Secret, by <c>namespace/name</c>. Never a value.</summary>
+    /// <summary>Existing Secrets by <c>namespace/name</c>. A null list means "exists, not read", which is all the create-only probe can report. Never a value.</summary>
     [JsonPropertyOrder(2)]
     public Dictionary<string, List<string>?>? Secrets { get; init; }
 
@@ -18,7 +18,7 @@ public sealed class Observation : IObservation
     [JsonPropertyOrder(3)]
     public PostgresObservation? Postgres { get; init; }
 
-    /// <summary>Namespaces whose listing failed. They are deliberately NOT in <see cref="Namespaces"/>.</summary>
+    /// <summary>Namespaces in which a probe failed. They are deliberately NOT in <see cref="Namespaces"/>.</summary>
     [JsonPropertyOrder(4)]
     public List<NamespaceFailure>? Failures { get; init; }
 

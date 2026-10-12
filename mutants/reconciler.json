@@ -11,8 +11,8 @@
     {
       "id": "postgres-not-inspected",
       "file": "backend/Balenthiran.SecretProvisioner.Services/Reconciler.cs",
-      "from": "        return (set, _observer.Observe(listings, _observer.IndexPostgres(catalogue.RoleNames, catalogue.DatabaseNames)));",
-      "to": "        return (set, _observer.Observe(listings, null));",
+      "from": "        return (set, _observer.Observe(probes, _observer.IndexPostgres(catalogue.RoleNames, catalogue.DatabaseNames)));",
+      "to": "        return (set, _observer.Observe(probes, null));",
       "kills": "A_second_reconcile_sees_the_first_ones_work (every database key goes unknown, so nothing is created the first time either)"
     },
     {
@@ -23,11 +23,11 @@
       "kills": "A_Postgres_that_cannot_be_read_fails_the_call_and_writes_nothing"
     },
     {
-      "id": "namespaces-listed-twice",
+      "id": "secrets-probed-twice",
       "file": "backend/Balenthiran.SecretProvisioner.Services/Reconciler.cs",
-      "from": "        var namespaces = set.Declarations.Select(d => d.Namespace).Distinct(StringComparer.Ordinal).ToList();",
-      "to": "        var namespaces = set.Declarations.Select(d => d.Namespace).ToList();",
-      "kills": "Only_the_declared_namespaces_are_listed_and_each_only_once"
+      "from": "        var declared = set.Declarations.Select(d => (d.Namespace, d.SecretName)).Distinct().ToList();",
+      "to": "        var declared = set.Declarations.Select(d => (d.Namespace, d.SecretName)).ToList();",
+      "kills": "Only_the_declared_Secrets_are_probed_and_each_only_once"
     },
     {
       "id": "plan-against-a-different-observation",

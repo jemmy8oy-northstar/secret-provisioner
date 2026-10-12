@@ -22,22 +22,6 @@
       "detail": "CREATE DATABASE balenthiran OWNER balenthiran"
     },
     {
-      "kind": "patch-secret-key",
-      "namespace": "balenthiran",
-      "secretName": "around-the-world-secrets",
-      "key": "Jwt__Secret",
-      "type": "random",
-      "source": "generate 32 random bytes, hex-encoded (openssl rand -hex 32)",
-      "preserves": [
-        "Admin__Key",
-        "ConnectionStrings__DefaultConnection",
-        "LegacyMigrationToken",
-        "PhotoStorage__AccessKeyId",
-        "PhotoStorage__SecretAccessKey"
-      ],
-      "detail": "patch balenthiran/around-the-world-secrets#Jwt__Secret, preserving 5 existing key(s)"
-    },
-    {
       "kind": "create-secret",
       "namespace": "balenthiran",
       "secretName": "balenthiran-secrets",
@@ -51,7 +35,17 @@
       "detail": "create Secret balenthiran/balenthiran-secrets with 1 key(s)"
     }
   ],
-  "blocked": [],
+  "blocked": [
+    {
+      "app": "around-the-world",
+      "namespace": "balenthiran",
+      "secretName": "around-the-world-secrets",
+      "key": "Jwt__Secret",
+      "type": "random",
+      "action": "add-by-hand",
+      "reason": "balenthiran/around-the-world-secrets already exists without this key, and create-only never changes an existing Secret. Add it by hand"
+    }
+  ],
   "unknown": [],
   "drift": [],
   "unmanaged": [
@@ -106,12 +100,11 @@
     }
   ],
   "summary": {
-    "steps": 4,
+    "steps": 3,
     "createSecret": 1,
-    "patchKey": 1,
     "createRole": 1,
     "createDatabase": 1,
-    "blocked": 0,
+    "blocked": 1,
     "unknown": 0,
     "drift": 0,
     "unmanaged": 1,

@@ -62,66 +62,26 @@
     }
   },
   "plan": {
-    "steps": [
+    "steps": [],
+    "blocked": [
       {
-        "kind": "create-role",
         "app": "around-the-world",
         "namespace": "balenthiran",
         "secretName": "around-the-world-secrets",
         "key": "ConnectionStrings__DefaultConnection",
         "type": "postgres-db",
-        "role": "aroundtheworld",
-        "detail": "CREATE ROLE aroundtheworld LOGIN PASSWORD <generated>"
+        "action": "add-by-hand",
+        "reason": "balenthiran/around-the-world-secrets already exists without this key, and create-only never changes an existing Secret. Add it by hand"
       },
       {
-        "kind": "create-database",
         "app": "around-the-world",
-        "namespace": "balenthiran",
-        "secretName": "around-the-world-secrets",
-        "key": "ConnectionStrings__DefaultConnection",
-        "type": "postgres-db",
-        "database": "aroundtheworld",
-        "role": "aroundtheworld",
-        "detail": "CREATE DATABASE aroundtheworld OWNER aroundtheworld"
-      },
-      {
-        "kind": "patch-secret-key",
-        "namespace": "balenthiran",
-        "secretName": "around-the-world-secrets",
-        "key": "ConnectionStrings__DefaultConnection",
-        "type": "postgres-db",
-        "source": "the Npgsql connection string for aroundtheworld as aroundtheworld",
-        "preserves": [
-          "Jwt__Secret"
-        ],
-        "detail": "patch balenthiran/around-the-world-secrets#ConnectionStrings__DefaultConnection, preserving 1 existing key(s)"
-      },
-      {
-        "kind": "patch-secret-key",
         "namespace": "balenthiran",
         "secretName": "around-the-world-secrets",
         "key": "Admin__Key",
         "type": "random",
-        "source": "generate 16 random bytes, hex-encoded (openssl rand -hex 16)",
-        "preserves": [
-          "Jwt__Secret"
-        ],
-        "detail": "patch balenthiran/around-the-world-secrets#Admin__Key, preserving 1 existing key(s)"
+        "action": "add-by-hand",
+        "reason": "balenthiran/around-the-world-secrets already exists without this key, and create-only never changes an existing Secret. Add it by hand"
       },
-      {
-        "kind": "patch-secret-key",
-        "namespace": "kit",
-        "secretName": "kit-secrets",
-        "key": "S",
-        "type": "random",
-        "source": "generate 32 random bytes, hex-encoded (openssl rand -hex 32)",
-        "preserves": [
-          "Other"
-        ],
-        "detail": "patch kit/kit-secrets#S, preserving 1 existing key(s)"
-      }
-    ],
-    "blocked": [
       {
         "app": "around-the-world",
         "namespace": "balenthiran",
@@ -139,6 +99,15 @@
         "type": "external",
         "action": "supply-externally",
         "reason": "nothing can generate this value; a human must put it in balenthiran/around-the-world-secrets#PhotoStorage__SecretAccessKey. Left as it is, the pod fails with CreateContainerConfigError minutes after it starts"
+      },
+      {
+        "app": "k",
+        "namespace": "kit",
+        "secretName": "kit-secrets",
+        "key": "S",
+        "type": "random",
+        "action": "add-by-hand",
+        "reason": "kit/kit-secrets already exists without this key, and create-only never changes an existing Secret. Add it by hand"
       }
     ],
     "unknown": [],
@@ -163,12 +132,11 @@
       }
     ],
     "summary": {
-      "steps": 5,
+      "steps": 0,
       "createSecret": 0,
-      "patchKey": 3,
-      "createRole": 1,
-      "createDatabase": 1,
-      "blocked": 2,
+      "createRole": 0,
+      "createDatabase": 0,
+      "blocked": 5,
       "unknown": 0,
       "drift": 0,
       "unmanaged": 1,

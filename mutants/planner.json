@@ -2,18 +2,18 @@
   "command": "dotnet test backend/Balenthiran.SecretProvisioner.slnx",
   "mutants": [
     {
-      "id": "existing-secret-created-not-patched",
+      "id": "unread-secret-not-left-alone",
       "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
-      "from": "            if (existing is null)\n            {\n                steps.Add(new PlanStep",
-      "to": "            if (true)\n            {\n                steps.Add(new PlanStep",
-      "kills": "An_existing_secret_is_patched_and_never_created_whatever_it_holds, and the clobber guard"
+      "from": "                if (exists && existing is null)\n                {",
+      "to": "                if (false)\n                {",
+      "kills": "An_existing_secret_that_was_never_read_is_left_alone_key_by_key: every random key of a live Secret would be reported as needing a hand edit"
     },
     {
       "id": "clobber-guard-disarmed",
       "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
-      "from": "            if (secrets.TryGetValue(target, out var keys))",
-      "to": "            if (false && secrets.TryGetValue(target, out var keys))",
-      "kills": "The_clobber_guard_rejects_a_plan_that_creates_over_an_existing_secret"
+      "from": "            if (secrets.ContainsKey(target))",
+      "to": "            if (false && secrets.ContainsKey(target))",
+      "kills": "The_clobber_guard_rejects_a_create_over_an_existing_secret_it_never_read"
     },
     {
       "id": "unenumerated-namespace-treated-as-empty",
@@ -88,16 +88,9 @@
     {
       "id": "observer-claims-failed-namespace",
       "file": "backend/Balenthiran.SecretProvisioner.Services/Observer.cs",
-      "from": "                failures.Add(new NamespaceFailure { Namespace = result.Namespace, Error = result.Error });\n                continue;",
-      "to": "                failures.Add(new NamespaceFailure { Namespace = result.Namespace, Error = result.Error });\n                namespaces.Add(result.Namespace);\n                continue;",
-      "kills": "A_namespace_whose_listing_failed_is_not_claimed_as_enumerated; A_failed_listing_reaches_the_planner..."
-    },
-    {
-      "id": "observer-reads-only-data",
-      "file": "backend/Balenthiran.SecretProvisioner.Services/Observer.cs",
-      "from": "        names.UnionWith(secret?.StringData?.Keys ?? []);",
-      "to": "",
-      "kills": "StringData_counts_as_present_not_missing"
+      "from": "Namespaces = all.Select(p => p.Namespace).Where(ns => !failed.ContainsKey(ns))",
+      "to": "Namespaces = all.Select(p => p.Namespace)",
+      "kills": "A_namespace_with_a_failed_probe_is_not_claimed_as_enumerated; A_failed_probe_reaches_the_planner_as_undecidable_never_as_a_create"
     },
     {
       "id": "observer-keeps-system-databases",
@@ -105,6 +98,27 @@
       "from": "            .Where(n => !SystemDatabases.Contains(n))",
       "to": "            .Where(n => true)",
       "kills": "System_roles_and_databases_are_not_mistaken_for_ours"
+    },
+    {
+      "id": "add-by-hand-becomes-a-write",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Planner.cs",
+      "from": "case \"random\" or \"postgres-db\" when exists:",
+      "to": "case \"random\" or \"postgres-db\" when false:",
+      "kills": "An_existing_secret_is_never_written_whatever_it_holds: a missing key plans a create over the Secret, which the clobber guard then throws on"
+    },
+    {
+      "id": "observer-keeps-the-neighbours",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Observer.cs",
+      "from": "foreach (var probe in all.Where(p => p.Exists == true && !failed.ContainsKey(p.Namespace)))",
+      "to": "foreach (var probe in all.Where(p => p.Exists == true))",
+      "kills": "One_failed_probe_takes_the_whole_namespace_out_even_if_its_neighbours_answered"
+    },
+    {
+      "id": "observer-reads-a-silent-probe-as-absent",
+      "file": "backend/Balenthiran.SecretProvisioner.Services/Observer.cs",
+      "from": "foreach (var probe in all.Where(p => p.Exists is null))",
+      "to": "foreach (var probe in all.Where(p => p.Exists is null && p.Error is not null))",
+      "kills": "A_probe_with_neither_answer_nor_error_is_a_failure_not_an_absence"
     }
   ]
 }

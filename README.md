@@ -24,14 +24,14 @@ readable about six comments later.
 | **A Deployment, not a Job or CronJob** | it serves a status endpoint, so it has to outlive a single run. |
 | **On demand — no timer** | nothing runs unless someone hits `/reconcile`. A create-only provisioner that only ever runs while a human is watching has a much smaller blast radius than one that acts at 3am. |
 | **Internal only — no Ingress at all** | not an Ingress with authentication in front of it. Reaching it requires `kubectl port-forward`, which requires cluster credentials. |
-| **Create-only. Never delete, never overwrite.** | a key that is already present is left alone, even when it looks wrong. |
+| **Create-only, enforced by the cluster** ([#9](https://github.com/jemmy8oy-northstar/secret-provisioner/issues/9)) | the Role grants `create` on Secrets and nothing else, so this pod cannot read, change or delete any Secret — whatever the code does. A Secret that exists is left alone whole; a key missing from one is added by hand. |
 | **A non-superuser provisioning role** | Postgres 16 restricts `CREATEROLE` so a role may only alter roles it created itself, so this pod cannot touch `postgres` or any role it did not make. |
 
 ## Routes
 
 | route | what it does |
 | --- | --- |
-| `GET /status` | what exists — namespace, secret, key, state. Never a value. |
+| `GET /status` | which declared Secrets exist, and the Postgres roles and databases. Not their keys or values: the pod has no permission to read a Secret. |
 | `GET /plan` | what a reconcile *would* do. Changes nothing. |
 | `POST /reconcile` | does it. **Takes no body** — the declarations are the only input. |
 
@@ -58,8 +58,8 @@ James chose C# on
 which matches his house stack (.NET backend, React frontend, optional Postgres).
 The code lives in `backend/` in web-template's layout: interfaces in
 `Abstractions`, models in `DataModels`, pure logic in `Services`, and the
-Kubernetes, Postgres and GitHub clients in `Database`. The JavaScript in `src/`
-is what it was ported from. It is deleted once the C# service runs.
+Kubernetes, Postgres and GitHub clients in `Database`. It was ported from
+JavaScript, which was deleted once the C# service ran (#9).
 
 ## What is built
 
@@ -75,19 +75,34 @@ is what it was ported from. It is deleted once the C# service runs.
   responses into that observation. Pure; the clients live at the edge.
 - ✅ **The contracts** for the Kubernetes, Postgres and declarations clients
   (`Abstractions/Services`).
-- ⬜ The executor, the three clients and the HTTP surface.
-- ⬜ `Dockerfile`, chart, build workflow.
+- ✅ The executor, the three clients and the HTTP surface.
+- ✅ `Dockerfile`, chart, build workflow.
+
+### How it knows a Secret exists without reading it
+
+Every way to read a Secret — `get`, `list`, `watch` — returns its values;
+Kubernetes has no permission for "names only". So the pod asks with a **dry-run
+create** (`POST …/secrets?dryRun=All`), which needs only `create`. The API server
+answers 409 `AlreadyExists` for a name that is taken and 201 for one that is
+free, and writes nothing either way. Any other answer — a 403, a 503, a 409 for
+another reason — is a failed probe, never "absent".
+
+A Secret that exists is skipped **entirely**, Postgres included: no role, no
+database and no write for it, so a second reconcile never touches what the first
+one made.
 
 ### How the port is checked
 
-`tools/plan-goldens.mjs` runs the JavaScript planner from `oke-fleet` over 19
-scenarios. It writes each scenario's input together with the planner's real
-output to `backend/Balenthiran.SecretProvisioner.Tests/Fixtures/Plan/`. The C#
+`tools/plan-goldens.mjs` (now deleted; it is in git history) ran the JavaScript
+planner from `oke-fleet` over 19 scenarios. It wrote each scenario's input
+together with the planner's real output to `backend/Balenthiran.SecretProvisioner.Tests/Fixtures/Plan/`. The C#
 planner must produce the same plan for every one. The expected side never
 passes through C#, so a serialiser bug can't hide by appearing on both sides.
+Two goldens were edited by hand when create-only landed: the JS planner patched a
+key into an existing Secret there, and that is now a blocked `add-by-hand` entry.
 
-`mutants/planner.json` lists 15 specific ways to break the planner and the
-observer, each naming the test that must fail. All 15 are killed:
+`mutants/planner.json` lists 17 specific ways to break the planner and the
+observer, each naming the test that must fail. All 17 are killed:
 
 ```sh
 node ../claude-code-bot/tools/mutate-spec.js mutants/planner.json --keep-going
@@ -96,27 +111,21 @@ node ../claude-code-bot/tools/mutate-spec.js mutants/planner.json --keep-going
 ### The one property the observer exists to hold
 
 The planner refuses to plan against a namespace the observation does not list,
-because *"this namespace holds no Secrets"* and *"I never listed this
-namespace"* arrive as the same empty object — and a failed lookup read as the
-first plans a **create** for a Secret that already exists, which deletes every
-key not in the plan. `around-the-world-secrets` holds five keys, two of them
-`Jwt__Secret` and `Admin__Key`, so the visible symptom would be every guest
-signed out mid-party rather than an error anyone would see in a log.
+because *"this Secret does not exist"* and *"I could not ask"* must never be
+the same answer — and a failed probe read as the first plans a **create** for a
+Secret that already exists. The API would refuse that create today, but the
+refusal is the observer's job, not luck.
 
 That refusal is worth nothing unless the observer never lies about what it
-enumerated. So a namespace whose listing **failed** does not appear in
-`namespaces`, even though the natural way to write the loop puts it there. The
-seam is pinned from both sides, and a test asserts each half.
+asked. So a namespace in which **any** probe failed does not appear in
+`namespaces`, even when its other probes answered. The seam is pinned from both
+sides, and a test asserts each half.
 
 ## Running the tests
 
 ```sh
-dotnet test backend/Balenthiran.SecretProvisioner.slnx   # the C# service
-npm test                                                  # the JavaScript it was ported from
+dotnet test backend/Balenthiran.SecretProvisioner.slnx
 ```
-
-⚠️ Not `node --test src/` — naming a directory makes Node resolve it as a module
-and fail with `MODULE_NOT_FOUND`, which looks exactly like a broken suite.
 
 ## Branches
 

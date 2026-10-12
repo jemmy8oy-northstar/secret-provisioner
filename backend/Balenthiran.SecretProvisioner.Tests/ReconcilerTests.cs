@@ -42,13 +42,26 @@ public class ReconcilerTests
     }
 
     [Fact]
-    public async Task Only_the_declared_namespaces_are_listed_and_each_only_once()
+    public async Task Only_the_declared_Secrets_are_probed_and_each_only_once()
     {
         var estate = new Estate();
         await Reconciler(estate).PlanAsync();
 
-        var declared = Declarations().Select(d => d.Namespace).Distinct().Order().ToList();
-        Assert.Equal(declared, estate.Listed.Order().ToList());
+        var declared = Declarations().Select(d => $"{d.Namespace}/{d.SecretName}").Distinct().Order().ToList();
+        Assert.Equal(declared, estate.Probed.Order().ToList());
+    }
+
+    [Fact]
+    public async Task Two_declarations_of_one_Secret_probe_it_once()
+    {
+        // The planner merges two declarations that name one Secret into one create. A probe per
+        // declaration would ask the same question twice, and on a flaky API could get two answers.
+        var first = Declarations()[0];
+        var twin = new SecretDeclaration { App = first.App, Namespace = first.Namespace, SecretName = first.SecretName, Keys = [new KeyDeclaration { Key = "Twin__Key", Type = "random" }] };
+        var estate = new Estate { Extra = [twin] };
+        await Reconciler(estate).PlanAsync();
+
+        Assert.Equal(1, estate.Probed.Count(t => t == $"{first.Namespace}/{first.SecretName}"));
     }
 
     [Fact]
@@ -128,9 +141,11 @@ public class ReconcilerTests
 
         public bool PostgresDown { get; init; }
 
+        public List<SecretDeclaration> Extra { get; init; } = [];
+
         public int Loads { get; private set; }
 
-        public List<string> Listed { get; } = [];
+        public List<string> Probed { get; } = [];
 
         public List<string> Writes { get; } = [];
 
@@ -139,20 +154,17 @@ public class ReconcilerTests
         public Task<IDeclarationSet> LoadAsync(CancellationToken cancellationToken = default)
         {
             Loads++;
-            return Task.FromResult<IDeclarationSet>(new DeclarationSet { Owner = "jemmy8oy-northstar", Repo = "oke-fleet", Branch = "main", Sha = Sha, Declarations = Declarations() });
+            return Task.FromResult<IDeclarationSet>(new DeclarationSet { Owner = "jemmy8oy-northstar", Repo = "oke-fleet", Branch = "main", Sha = Sha, Declarations = [.. Declarations(), .. Extra] });
         }
 
-        public Task<IReadOnlyList<INamespaceListing>> ObserveNamespacesAsync(IEnumerable<string> namespaces, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ISecretProbe>> ProbeSecretsAsync(IEnumerable<(string Namespace, string Name)> secrets, CancellationToken cancellationToken = default)
         {
-            var listings = namespaces.Select(ns =>
+            var probes = secrets.Select(t =>
             {
-                Listed.Add(ns);
-                var items = _secrets.Where(s => s.Key.StartsWith(ns + "/", StringComparison.Ordinal))
-                    .Select(s => new KubeSecret { Metadata = new KubeObjectMeta { Name = s.Key[(ns.Length + 1)..], Namespace = ns }, Data = s.Value })
-                    .ToList();
-                return (INamespaceListing)new NamespaceListing { Namespace = ns, Listing = new KubeSecretList { Items = items } };
+                Probed.Add($"{t.Namespace}/{t.Name}");
+                return (ISecretProbe)new SecretProbe { Namespace = t.Namespace, Name = t.Name, Exists = _secrets.ContainsKey($"{t.Namespace}/{t.Name}") };
             }).ToList();
-            return Task.FromResult<IReadOnlyList<INamespaceListing>>(listings);
+            return Task.FromResult<IReadOnlyList<ISecretProbe>>(probes);
         }
 
         public Task<IPostgresCatalogue> ReadCatalogueAsync(CancellationToken cancellationToken = default) =>
@@ -182,15 +194,5 @@ public class ReconcilerTests
             Writes.Add("secret " + ns + "/" + name);
             return Task.CompletedTask;
         }
-
-        public Task PatchSecretKeyAsync(string ns, string name, string key, string value, CancellationToken cancellationToken = default)
-        {
-            _secrets[ns + "/" + name].Add(key, value);
-            Values.Add(value);
-            Writes.Add("patch " + ns + "/" + name + "#" + key);
-            return Task.CompletedTask;
-        }
-
-        public Task<IKubeSecretList> ListSecretsAsync(string ns, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }
