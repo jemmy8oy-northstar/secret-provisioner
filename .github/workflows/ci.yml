@@ -8,7 +8,7 @@ name: CI
 #
 # Job ids are the check contexts GitHub reports, and a ruleset requires them by
 # exact string. This repo has no rulesets today; if one is added, require
-# `backend` (and `legacy-js` while it exists) under those names.
+# `backend` under that name.
 
 on:
   pull_request:
@@ -46,19 +46,3 @@ jobs:
           --no-build
           --configuration Release
           --verbosity normal
-
-  # The JavaScript the port was ported from, still on `dev` (`src/observe.js`).
-  # Delete this job in the same pull request that deletes `src/`.
-  legacy-js:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      # No `npm ci`: no dependencies, so no lockfile, and `npm ci` fails outright
-      # without one.
-      - name: Test
-        run: npm test

@@ -6,4 +6,3 @@ backend/**/bin
 backend/**/obj
 
 .git
-node_modules
